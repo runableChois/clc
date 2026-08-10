@@ -4,7 +4,7 @@ from google import genai
 # 1. 웹페이지 기본 설정
 st.set_page_config(page_title="우리 팀 스몰 제미나이", page_icon="🤖")
 st.title("🤖 우리 팀 스몰 제미나이")
-st.write("실시간 Google Gemini API 연결 웹앱 (초저가 Lite 모델 적용)")
+st.write("실시간 Google Gemini API 연결 웹앱")
 st.write("---")
 
 # 2. Secrets에서 API 키 불러오기
@@ -18,9 +18,9 @@ if "GEMINI_API_KEY" in st.secrets:
     if user_input:
         with st.spinner("Gemini가 답변을 생성하고 있습니다..."):
             try:
-                # 💡 가장 저렴하고 빠른 gemini-2.0-flash-lite 모델 호출
+                # 결제 완료된 계정의 정식 Gemini 2.0 Flash 호출
                 response = client.models.generate_content(
-                    model="gemini-2.0-flash-lite",
+                    model="gemini-2.0-flash",
                     contents=user_input
                 )
                 st.success("답변 도착!")
