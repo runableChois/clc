@@ -19,7 +19,7 @@ if "GEMINI_API_KEY" in st.secrets:
             try:
                 # 3. Gemini 호출
                 response = client.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-1.5-flash",
                     contents=user_input
                 )
                 st.success("🎉 성공! 구글 API가 정상 작동합니다.")
