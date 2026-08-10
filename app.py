@@ -6,7 +6,7 @@ from google.genai import types
 import os
 
 # 1. 웹페이지 기본 설정
-st.set_page_config(page_title="세스코 단가 안내 AI 서비스", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="세스코 단가 및 서비스 안내 AI", page_icon="🤖", layout="wide")
 
 # 🎨 표(Table) 가독성 향상 커스텀 CSS
 st.markdown("""
@@ -43,7 +43,6 @@ st.markdown("""
 DATA_FILE_PATH = "saved_data_context.txt"
 NAME_FILE_PATH = "saved_data_name.txt"
 
-# 저장된 서버 데이터 불러오기 함수
 def load_server_data():
     if os.path.exists(DATA_FILE_PATH) and os.path.exists(NAME_FILE_PATH):
         with open(DATA_FILE_PATH, "r", encoding="utf-8") as f:
@@ -53,28 +52,24 @@ def load_server_data():
         return context, filename
     return "", None
 
-# 서버 데이터 저장 함수
 def save_server_data(context, filename):
     with open(DATA_FILE_PATH, "w", encoding="utf-8") as f:
         f.write(context)
     with open(NAME_FILE_PATH, "w", encoding="utf-8") as f:
         f.write(filename)
 
-# 서버 데이터 삭제 함수
 def delete_server_data():
     if os.path.exists(DATA_FILE_PATH):
         os.remove(DATA_FILE_PATH)
     if os.path.exists(NAME_FILE_PATH):
         os.remove(NAME_FILE_PATH)
 
-# 데이터 로드
 file_context, uploaded_filename = load_server_data()
 
 # 3. 사이드바 UI 구성
 with st.sidebar:
     st.title("⚙️ 설정 및 안내")
     
-    # AI 역할 선택
     role_option = st.selectbox(
         "AI의 역할을 선택하세요:",
         ["견적 및 가격 비교 전문가", "비즈니스 마케팅 전문가", "IT/코딩 전문 개발자", "직접 입력"]
@@ -91,7 +86,6 @@ with st.sidebar:
 
     st.write("---")
     
-    # 💡 [핵심] 현재 등록된 파일 정보 (일반 유저도 확인 가능)
     if uploaded_filename:
         st.success(f"📄 **현재 적용된 데이터:**\n{uploaded_filename}")
     else:
@@ -99,10 +93,7 @@ with st.sidebar:
 
     st.write("---")
     
-    # 🔑 [핵심] 관리자 인증 섹션
     st.subheader("🔑 관리자 메뉴")
-    
-    # Secrets에 암호가 없으면 기본값 '1234' 사용
     admin_password_secret = st.secrets.get("ADMIN_PASSWORD", "1234")
     input_pwd = st.text_input("관리자 비밀번호 입력:", type="password")
     
@@ -111,32 +102,38 @@ with st.sidebar:
     if is_admin:
         st.success("🔓 관리자 인증되었습니다.")
         
-        # 관리자 전용 업로드 창
         uploaded_file = st.file_uploader("새 단가표/PDF 업로드", type=["xlsx", "csv", "pdf"])
         
         if uploaded_file is not None:
             if st.button("💾 이 파일로 마스터 데이터 업데이트", use_container_width=True):
                 try:
-                    with st.spinner("파일 변환 및 서버 저장 중..."):
+                    with st.spinner("모든 시트 및 파일 변환 중..."):
                         extracted_text = ""
+                        
+                        # 💡 [핵심 변경] 엑셀의 모든 시트(sheet_name=None)를 다 읽어오도록 수정
                         if uploaded_file.name.endswith(('.xlsx', '.xls')):
-                            df = pd.read_excel(uploaded_file)
-                            extracted_text = df.to_markdown(index=False)
+                            excel_sheets = pd.read_excel(uploaded_file, sheet_name=None)
+                            for sheet_name, df in excel_sheets.items():
+                                if not df.empty:
+                                    extracted_text += f"\n\n### 📄 [시트명: {sheet_name}]\n"
+                                    extracted_text += df.to_markdown(index=False)
+                        
                         elif uploaded_file.name.endswith('.csv'):
                             df = pd.read_csv(uploaded_file)
                             extracted_text = df.to_markdown(index=False)
+                            
                         elif uploaded_file.name.endswith('.pdf'):
                             reader = PdfReader(uploaded_file)
-                            for page in reader.pages:
+                            for page_num, page in enumerate(reader.pages, start=1):
+                                extracted_text += f"\n\n### 📄 [PDF {page_num}페이지]\n"
                                 extracted_text += page.extract_text() + "\n"
                         
                         save_server_data(extracted_text, uploaded_file.name)
-                        st.success("✅ 서버에 새 마스터 데이터가 적용되었습니다!")
+                        st.success(f"✅ 모든 시트 내용이 성공적으로 학습되었습니다!")
                         st.rerun()
                 except Exception as e:
                     st.error(f"⚠️ 저장 실패: {e}")
                     
-        # 관리자 전용 삭제 버튼
         if uploaded_filename:
             if st.button("🗑️ 등록된 데이터 완전 삭제", use_container_width=True):
                 delete_server_data()
@@ -154,9 +151,9 @@ with st.sidebar:
         st.rerun()
 
 # 메인 화면
-st.title("🤖 세스코 단가 및 서비스 안내 AI (Day 5)")
+st.title("🤖 세스코 단가 및 서비스 안내 AI")
 if uploaded_filename:
-    st.caption(f"현재 참조 중인 데이터: **{uploaded_filename}**")
+    st.caption(f"현재 참조 중인 데이터: **{uploaded_filename}** (모든 시트 반영됨)")
 else:
     st.caption("현재 참조 데이터 없음")
 st.write("---")
@@ -173,7 +170,7 @@ if "GEMINI_API_KEY" in st.secrets:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    if prompt := st.chat_input("질문을 입력하세요... (예: OO 서비스 월 단가 알려줘)"):
+    if prompt := st.chat_input("질문을 입력하세요... (예: OO 시트 내용이나 특정 서비스 단가 알려줘)"):
         st.chat_message("user").markdown(prompt)
         st.session_state.messages.append({"role": "user", "content": prompt})
 
@@ -182,13 +179,12 @@ if "GEMINI_API_KEY" in st.secrets:
             role = "user" if msg["role"] == "user" else "model"
             history.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-        # 서버에 저장된 마스터 데이터 결합
         final_system_instruction = base_instruction
         if file_context:
             final_system_instruction += (
                 f"\n\n[참고 데이터 문서: {uploaded_filename}]\n"
-                "다음은 관리자가 직접 등록한 서비스 및 단가 데이터입니다. "
-                "사용자의 질문에는 반드시 아래 데이터를 기반으로 정확한 제품명, 스펙, 단가를 찾아 마크다운 표 등으로 답변하세요:\n\n"
+                "다음은 관리자가 직접 등록한 서비스 및 단가 데이터입니다. 여러 시트로 구성되어 있을 수 있습니다. "
+                "사용자의 질문에는 반드시 아래 시트별 데이터를 종합해서 정확한 제품명, 스펙, 단가를 찾아 답변하세요:\n\n"
                 f"{file_context}"
             )
 
