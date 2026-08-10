@@ -1,7 +1,9 @@
 import os
+import io
+import urllib.request
 import pandas as pd
 from pypdf import PdfReader
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 import streamlit as st
 from google import genai
 from google.genai import types
@@ -15,22 +17,9 @@ st.set_page_config(
     layout="wide"
 )
 
-# 세련된 웹앱 UI 스타일링
 st.markdown("""
 <style>
     .main { padding: 1.5rem 2rem; }
-    
-    /* 제안서 생성 박스 스타일 */
-    .proposal-box {
-        background-color: #f0fdf4;
-        border: 1px solid #bbf7d0;
-        border-radius: 12px;
-        padding: 1.2rem;
-        margin-top: 1rem;
-        margin-bottom: 1rem;
-    }
-    
-    /* 마크다운 표 디자인 커스텀 */
     div[data-testid="stMarkdownContainer"] table {
         width: 100% !important;
         border-collapse: collapse !important;
@@ -60,7 +49,72 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 마스터 데이터 및 영업일지 I/O 함수
+# 2. 한글 폰트 자동 준비 및 견적 카드 이미지 생성
+# ==========================================
+FONT_PATH = "NanumGothic-Bold.ttf"
+
+def ensure_korean_font():
+    """클라우드 서버용 한글 폰트 자동 다운로드"""
+    if not os.path.exists(FONT_PATH):
+        font_url = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf"
+        try:
+            urllib.request.urlretrieve(font_url, FONT_PATH)
+        except Exception as e:
+            st.error(f"폰트 다운로드 실패: {e}")
+
+def create_quote_card_image(text_content):
+    """카톡/문자 전송용 견적 카드 이미지 자동 생성"""
+    ensure_korean_font()
+    
+    width, height = 700, 850
+    img = Image.new('RGB', (width, height), color='#f8fafc')
+    draw = ImageDraw.Draw(img)
+    
+    # 폰트 불러오기
+    try:
+        font_large = ImageFont.truetype(FONT_PATH, 30)
+        font_medium = ImageFont.truetype(FONT_PATH, 20)
+        font_small = ImageFont.truetype(FONT_PATH, 15)
+    except:
+        font_large = font_medium = font_small = ImageFont.load_default()
+
+    # 상단 헤더 바
+    draw.rectangle([(0, 0), (width, 110)], fill='#0d6efd')
+    draw.text((30, 25), "💎 CESCO 맞춤 견적 제안서", fill='#ffffff', font=font_large)
+    draw.text((30, 70), "세스코 공식 단가 기준 맞춤 솔루션 안내", fill='#e2e8f0', font=font_small)
+    
+    # 본문 박스
+    draw.rectangle([(25, 130), (width - 25, height - 90)], fill='#ffffff', outline='#cbd5e1', width=2)
+    
+    # 본문 텍스트 출력
+    lines = text_content.split('\n')
+    y_offset = 150
+    for line in lines:
+        if y_offset > height - 110:
+            break
+        clean_line = line.replace('#', '').replace('*', '').strip()
+        if not clean_line:
+            y_offset += 10
+            continue
+            
+        if '견적' in clean_line or '요금' in clean_line or '제안' in clean_line:
+            draw.text((45, y_offset), clean_line[:38], fill='#0f172a', font=font_medium)
+            y_offset += 32
+        else:
+            draw.text((45, y_offset), clean_line[:45], fill='#334155', font=font_small)
+            y_offset += 24
+
+    # 하단 풋터
+    draw.rectangle([(0, height - 70), (width, height)], fill='#0f172a')
+    draw.text((30, height - 50), "📞 서비스 문의 & 방문 진단: 세스코 담당 영업팀", fill='#ffffff', font=font_small)
+    draw.text((30, height - 28), "본 견적은 프로모션 및 결합 조건에 따라 변동될 수 있습니다.", fill='#94a3b8', font=font_small)
+    
+    buf = io.BytesIO()
+    img.save(buf, format='PNG')
+    return buf.getvalue()
+
+# ==========================================
+# 3. 마스터 데이터 및 영업일지 I/O 함수
 # ==========================================
 DATA_FILE_PATH = "saved_data_context.txt"
 NAME_FILE_PATH = "saved_data_name.txt"
@@ -88,7 +142,6 @@ def delete_master_data():
         os.remove(NAME_FILE_PATH)
 
 def save_sales_log(member_name, client_name, proposed_deal, reaction, memo):
-    """팀원의 영업 미팅 일지 저장"""
     new_data = pd.DataFrame([{
         "작성일시": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
         "담당팀원": member_name,
@@ -128,7 +181,7 @@ def process_file_content(uploaded_file):
 file_context, uploaded_filename = load_master_data()
 
 # ==========================================
-# 3. 사이드바 (설정, 관리자 영업일지 관리)
+# 4. 사이드바 UI
 # ==========================================
 with st.sidebar:
     st.header("⚙️ 영업 모드 설정")
@@ -147,8 +200,7 @@ with st.sidebar:
     elif role_option == "거절 대응 & 셀링포인트 안내":
         base_instruction = (
             "당신은 베테랑 영업 멘토입니다.\n"
-            "팀원이 현장에서 고객의 거절 반응(예: '너무 비싸요', '타사 쓸게요')을 입력하면, "
-            "설득력 있는 반박 논리, 타사 대비 강점, 세스코의 핵심 셀링 포인트를 3가지로 정리해서 알려주세요."
+            "팀원이 현장에서 고객의 거절 반응을 입력하면, 설득력 있는 반박 논리와 핵심 셀링 포인트를 3가지로 정리해서 알려주세요."
         )
     else:
         base_instruction = "당신은 유능하고 친절한 AI 영업 보조입니다."
@@ -163,7 +215,6 @@ with st.sidebar:
 
     st.divider()
     
-    # 관리자 패널
     st.subheader("🔑 관리자 패널")
     admin_password_secret = st.secrets.get("ADMIN_PASSWORD", "1234")
     input_pwd = st.text_input("비밀번호 입력:", type="password")
@@ -171,7 +222,6 @@ with st.sidebar:
     if input_pwd == admin_password_secret:
         st.success("🔓 관리자 권한 활성화됨")
         
-        # 📋 팀 전체 영업일지 모아보기
         st.write("📋 **팀원 현장 영업 기록 대장:**")
         if os.path.exists(SALES_LOG_PATH):
             logs_df = pd.read_csv(SALES_LOG_PATH)
@@ -190,7 +240,6 @@ with st.sidebar:
             
         st.divider()
         
-        # 단가표 관리
         new_file = st.file_uploader("새 단가표 (시트 1 작성 엑셀/PDF)", type=["xlsx", "csv", "pdf"])
         if new_file and st.button("💾 마스터 데이터로 반영", use_container_width=True):
             try:
@@ -217,7 +266,7 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# 4. 메인 화면 & 챗봇 인터페이스
+# 5. 메인 화면 & 챗봇 인터페이스
 # ==========================================
 st.title("💼 우리 팀 세스코 영업지원 AI 시스템")
 
@@ -228,7 +277,6 @@ else:
 
 st.divider()
 
-# API 키 확인 및 메시지 처리
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"].strip()
     client = genai.Client(api_key=api_key)
@@ -236,12 +284,10 @@ if "GEMINI_API_KEY" in st.secrets:
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # 이전 대화 메시지 출력
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # 팀원 자주 쓰는 영업 질문 퀵 버튼
     selected_faq = None
     st.write("💡 **영업 현장 빠른 단가 조회:**")
     col1, col2, col3 = st.columns(3)
@@ -250,20 +296,18 @@ if "GEMINI_API_KEY" in st.secrets:
             selected_faq = "15평 매장 기준 추천 서비스와 단독가, 결합가, 프로모션가를 비교해서 고객 브리핑용 표로 보여줘."
     with col2:
         if st.button("🛡️ 타사 대비 핵심 강점 보기", use_container_width=True):
-            selected_faq = "고객이 타사(사설 업체 등) 가격과 비교할 때 설득할 수 있는 세스코만의 핵심 차별점 3가지를 정리해줘."
+            selected_faq = "고객이 타사 가격과 비교할 때 설득할 수 있는 세스코만의 핵심 차별점 3가지를 정리해줘."
     with col3:
         if st.button("🎁 이번 달 프로모션 혜택", use_container_width=True):
             selected_faq = "현재 고객에게 적용할 수 있는 프로모션 할인 혜택과 조건 단가를 보여줘."
 
     st.write("---")
     
-    # 📸 현장 사진 분석 (해충/매장)
     with st.expander("📸 **현장 해충/매장 사진으로 바로 서비스 추천받기**"):
         uploaded_img = st.file_uploader("현장 사진을 첨부하면 AI가 적합한 서비스를 진단해 줍니다.", type=["jpg", "jpeg", "png"])
         if uploaded_img:
             st.image(uploaded_img, caption="첨부된 현장 사진", width=250)
 
-    # 입력 질문 결정
     prompt_input = st.chat_input("팀원 질문 입력... (예: 25평 식당에 바이러스케어 결합하면 얼마야?)")
     user_prompt = selected_faq if selected_faq else prompt_input
 
@@ -284,7 +328,6 @@ if "GEMINI_API_KEY" in st.secrets:
                 f"{file_context}"
             )
 
-        # AI 답변 생성
         with st.chat_message("assistant"):
             try:
                 chat = client.chats.create(
@@ -314,27 +357,43 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 [영업팀 전용 기능 1] 카톡/문자 제안서 자동 생성
+    # 📱 카톡/문자 제안서 & 카드 이미지 자동 생성
     # ==========================================
     st.write("---")
     if len(st.session_state.messages) > 0:
-        if st.button("📱 **현재 상담 내용 1초만에 카톡/문자 제안서로 만들기**", use_container_width=True):
-            with st.spinner("고객 전송용 카톡/문자 요약문 작성 중..."):
-                recent_chat = st.session_state.messages[-1]["content"]
-                summary_prompt = (
-                    f"다음 상담 내용을 바탕으로 고객에게 카카오톡이나 문자로 바로 전송할 수 있는 "
-                    f"친절하고 정중한 견적 요약 메시지를 작성해 줘.\n\n"
-                    f"상담 내용:\n{recent_chat}"
-                )
-                
-                chat = client.chats.create(model="gemini-3-flash-preview")
-                res = chat.send_message(summary_prompt)
-                
-                st.subheader("📱 **고객 전송용 카톡/문자 메시지 (복사해서 전송하세요)**")
-                st.code(res.text, language="text")
+        if st.button("📱 **카톡/문자 제안서 & 카드 이미지 생성하기**", use_container_width=True):
+            with st.spinner("고객 전송용 메시지 및 견적 카드 이미지 제작 중..."):
+                try:
+                    recent_chat = st.session_state.messages[-1]["content"]
+                    summary_prompt = (
+                        f"다음 상담/견적 내용을 바탕으로 고객에게 카카오톡이나 문자로 바로 보낼 수 있는 "
+                        f"정중하고 명확한 요약 메시지를 작성해 줘.\n\n"
+                        f"견적 내용:\n{recent_chat}"
+                    )
+                    
+                    chat = client.chats.create(model="gemini-3-flash-preview")
+                    res = chat.send_message(summary_prompt)
+                    
+                    st.subheader("📱 **1. 카톡/문자 복사용 텍스트**")
+                    st.code(res.text, language="text")
+                    
+                    st.subheader("🖼️ **2. 카톡 전송용 이미지 견적 카드**")
+                    card_img_bytes = create_quote_card_image(res.text)
+                    
+                    st.image(card_img_bytes, caption="자동 생성된 세스코 견적 카드 미리보기", width=450)
+                    
+                    st.download_button(
+                        label="📥 **견적 카드 이미지 다운로드 (.png)**",
+                        data=card_img_bytes,
+                        file_name="세스코_맞춤_견적카드.png",
+                        mime="image/png",
+                        use_container_width=True
+                    )
+                except Exception as img_err:
+                    st.error(f"⚠️ 카드 이미지 생성 중 오류가 발생했습니다: {img_err}")
 
     # ==========================================
-    # 📝 [영업팀 전용 기능 2] 현장 영업일지 기록
+    # 📝 현장 영업일지 기록
     # ==========================================
     with st.expander("📝 **팀원 현장 영업 미팅 일지 기록하기**"):
         st.caption("오늘 방문한 매장/고객과의 상담 내역을 기록하면 팀 전체 영업 대장에 저장됩니다.")
