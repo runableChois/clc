@@ -1,5 +1,7 @@
 import os
 import io
+import json
+import re
 import urllib.request
 import pandas as pd
 from pypdf import PdfReader
@@ -49,7 +51,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 한글 폰트 자동 준비 및 견적 카드 이미지 생성
+# 2. 완성형 모바일 견적 카드 그래픽 생성 엔진
 # ==========================================
 FONT_PATH = "NanumGothic-Bold.ttf"
 
@@ -62,52 +64,66 @@ def ensure_korean_font():
         except Exception as e:
             st.error(f"폰트 다운로드 실패: {e}")
 
-def create_quote_card_image(text_content):
-    """카톡/문자 전송용 견적 카드 이미지 자동 생성"""
+def create_structured_quote_card(card_data):
+    """구조화된 견적 데이터를 바탕으로 레이아웃이 잡힌 완제품 카드 이미지 생성"""
     ensure_korean_font()
     
-    width, height = 700, 850
-    img = Image.new('RGB', (width, height), color='#f8fafc')
+    width, height = 750, 950
+    img = Image.new('RGB', (width, height), color='#f4f6f9')
     draw = ImageDraw.Draw(img)
     
-    # 폰트 불러오기
+    # 폰트 로드
     try:
-        font_large = ImageFont.truetype(FONT_PATH, 30)
-        font_medium = ImageFont.truetype(FONT_PATH, 20)
-        font_small = ImageFont.truetype(FONT_PATH, 15)
+        font_header = ImageFont.truetype(FONT_PATH, 28)
+        font_title = ImageFont.truetype(FONT_PATH, 20)
+        font_price = ImageFont.truetype(FONT_PATH, 21)
+        font_regular = ImageFont.truetype(FONT_PATH, 15)
+        font_small = ImageFont.truetype(FONT_PATH, 13)
     except:
-        font_large = font_medium = font_small = ImageFont.load_default()
+        font_header = font_title = font_price = font_regular = font_small = ImageFont.load_default()
 
-    # 상단 헤더 바
-    draw.rectangle([(0, 0), (width, 110)], fill='#0d6efd')
-    draw.text((30, 25), "💎 CESCO 맞춤 견적 제안서", fill='#ffffff', font=font_large)
-    draw.text((30, 70), "세스코 공식 단가 기준 맞춤 솔루션 안내", fill='#e2e8f0', font=font_small)
-    
-    # 본문 박스
-    draw.rectangle([(25, 130), (width - 25, height - 90)], fill='#ffffff', outline='#cbd5e1', width=2)
-    
-    # 본문 텍스트 출력
-    lines = text_content.split('\n')
-    y_offset = 150
-    for line in lines:
-        if y_offset > height - 110:
-            break
-        clean_line = line.replace('#', '').replace('*', '').strip()
-        if not clean_line:
-            y_offset += 10
-            continue
-            
-        if '견적' in clean_line or '요금' in clean_line or '제안' in clean_line:
-            draw.text((45, y_offset), clean_line[:38], fill='#0f172a', font=font_medium)
-            y_offset += 32
-        else:
-            draw.text((45, y_offset), clean_line[:45], fill='#334155', font=font_small)
-            y_offset += 24
+    # 1. 상단 브랜드 헤더 (CESCO Blue)
+    draw.rectangle([(0, 0), (width, 115)], fill='#004b9a')
+    draw.text((35, 25), "💎 CESCO 맞춤 솔루션 견적서", fill='#ffffff', font=font_header)
+    draw.text((35, 75), "세스코 공식 단가 기준 맞춤 솔루션 제안", fill='#cce3f7', font=font_regular)
 
-    # 하단 풋터
-    draw.rectangle([(0, height - 70), (width, height)], fill='#0f172a')
-    draw.text((30, height - 50), "📞 서비스 문의 & 방문 진단: 세스코 담당 영업팀", fill='#ffffff', font=font_small)
-    draw.text((30, height - 28), "본 견적은 프로모션 및 결합 조건에 따라 변동될 수 있습니다.", fill='#94a3b8', font=font_small)
+    # 2. 견적 대상 타이틀 박스
+    draw.rectangle([(30, 135), (width - 30, 210)], fill='#ffffff', outline='#cbd5e1', width=1)
+    title_text = card_data.get("title", "맞춤 위생 솔루션 견적")
+    draw.text((50, 152), title_text[:32], fill='#0f172a', font=font_title)
+    
+    subtitle_text = card_data.get("subtitle", "공식 결합 할인 및 프로모션 적용가")
+    draw.text((50, 182), subtitle_text[:42], fill='#64748b', font=font_small)
+
+    # 3. 품목별 요금 카드 리스트 (최대 4개)
+    items = card_data.get("items", [])
+    y_offset = 230
+    for item in items[:4]:
+        draw.rectangle([(30, y_offset), (width - 30, y_offset + 85)], fill='#ffffff', outline='#e2e8f0', width=1)
+        
+        name = item.get("name", "서비스 항목")
+        note = item.get("note", "")
+        price = item.get("price", "문의")
+
+        draw.text((50, y_offset + 18), name[:22], fill='#0f172a', font=font_title)
+        if note:
+            draw.text((50, y_offset + 48), note[:30], fill='#64748b', font=font_small)
+
+        # 가격 우측 강조 표시
+        draw.text((width - 210, y_offset + 28), price, fill='#0052cc', font=font_price)
+        y_offset += 98
+
+    # 4. 프로모션 혜택 하이라이트 박스
+    promo_text = card_data.get("promotion", "")
+    if promo_text:
+        draw.rectangle([(30, y_offset + 10), (width - 30, y_offset + 110)], fill='#eef6ff', outline='#004b9a', width=1)
+        draw.text((50, y_offset + 25), "🎁 특별 프로모션 & 결합 혜택", fill='#004b9a', font=font_title)
+        draw.text((50, y_offset + 62), promo_text[:45], fill='#1e293b', font=font_regular)
+
+    # 5. 하단 푸터
+    draw.rectangle([(0, height - 75), (width, height)], fill='#0f172a')
+    draw.text((35, height - 52), "📞 서비스 문의 & 무료 현장 진단: 세스코 담당 영업팀", fill='#ffffff', font=font_regular)
+    draw.text((35, height - 28), "※ 본 견적은 현장 상황 및 약정 조건에 따라 일부 변동될 수 있습니다.", fill='#94a3b8', font=font_small)
     
     buf = io.BytesIO()
     img.save(buf, format='PNG')
@@ -357,35 +373,65 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 카톡/문자 제안서 & 카드 이미지 자동 생성
+    # 📱 [고도화] 완성형 카톡 제안서 & 그래픽 카드 생성
     # ==========================================
     st.write("---")
     if len(st.session_state.messages) > 0:
-        if st.button("📱 **카톡/문자 제안서 & 카드 이미지 생성하기**", use_container_width=True):
-            with st.spinner("고객 전송용 메시지 및 견적 카드 이미지 제작 중..."):
+        if st.button("📱 **완성형 카톡 제안서 & 카드 이미지 생성하기**", use_container_width=True):
+            with st.spinner("견적 구조화 분석 및 완성형 모바일 카드 제작 중..."):
                 try:
                     recent_chat = st.session_state.messages[-1]["content"]
+                    
+                    # 1. 카톡 문구용 텍스트 생성
                     summary_prompt = (
-                        f"다음 상담/견적 내용을 바탕으로 고객에게 카카오톡이나 문자로 바로 보낼 수 있는 "
-                        f"정중하고 명확한 요약 메시지를 작성해 줘.\n\n"
+                        f"다음 견적 상담 내용을 바탕으로 고객에게 카카오톡으로 전달할 "
+                        f"친절하고 정중한 요약 메시지를 작성해 줘.\n\n{recent_chat}"
+                    )
+                    chat = client.chats.create(model="gemini-3-flash-preview")
+                    text_res = chat.send_message(summary_prompt)
+                    
+                    st.subheader("📱 **1. 카톡/문자 전송용 텍스트**")
+                    st.code(text_res.text, language="text")
+                    
+                    # 2. 이미지 카드용 JSON 데이터 구조화 파싱
+                    json_prompt = (
+                        f"다음 견적 내용에서 핵심 서비스와 요금 정보를 추출하여 오직 JSON 형식으로만 응답해 줘.\n"
+                        f"JSON 구조 예시:\n"
+                        f"{{\n"
+                        f'  "title": "15평 매장 맞춤 위생 솔루션 견적",\n'
+                        f'  "subtitle": "해충방제 + 위생케어 결합 할인 적용가",\n'
+                        f'  "items": [\n'
+                        f'    {{"name": "보일러/유충 방제", "price": "45,000원/월", "note": "월 1회 방문 점검"}},\n'
+                        f'    {{"name": "바이러스케어", "price": "30,000원/월", "note": "방제 결합 할인가"}}\n'
+                        f'  ],\n'
+                        f'  "promotion": "초기 설치비(110,000원) 면제 혜택"\n'
+                        f"}}\n\n"
                         f"견적 내용:\n{recent_chat}"
                     )
+                    json_res = chat.send_message(json_prompt)
                     
-                    chat = client.chats.create(model="gemini-3-flash-preview")
-                    res = chat.send_message(summary_prompt)
+                    # JSON 파싱
+                    json_match = re.search(r'\{.*\}', json_res.text, re.DOTALL)
+                    if json_match:
+                        card_data = json.loads(json_match.group())
+                    else:
+                        card_data = {
+                            "title": "세스코 맞춤 솔루션 견적",
+                            "subtitle": "공식 단가 기준 안내",
+                            "items": [{"name": "맞춤 위생 서비스", "price": "상담가", "note": "상세 문의"}],
+                            "promotion": "프로모션 및 결합 할인 조건 적용 가능"
+                        }
                     
-                    st.subheader("📱 **1. 카톡/문자 복사용 텍스트**")
-                    st.code(res.text, language="text")
+                    # 3. 레이아웃이 잡힌 완제품 카드 이미지 생성
+                    st.subheader("🖼️ **2. 카톡 전송용 완성형 견적 카드**")
+                    card_img_bytes = create_structured_quote_card(card_data)
                     
-                    st.subheader("🖼️ **2. 카톡 전송용 이미지 견적 카드**")
-                    card_img_bytes = create_quote_card_image(res.text)
-                    
-                    st.image(card_img_bytes, caption="자동 생성된 세스코 견적 카드 미리보기", width=450)
+                    st.image(card_img_bytes, caption="완성형 세스코 견적 카드 (수정 필요 없는 완제품)", width=480)
                     
                     st.download_button(
-                        label="📥 **견적 카드 이미지 다운로드 (.png)**",
+                        label="📥 **완성형 견적 카드 다운로드 (.png)**",
                         data=card_img_bytes,
-                        file_name="세스코_맞춤_견적카드.png",
+                        file_name="세스코_완성형_견적카드.png",
                         mime="image/png",
                         use_container_width=True
                     )
