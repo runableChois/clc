@@ -9,20 +9,33 @@ if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"].strip()
     client = genai.Client(api_key=api_key)
     
-    # 1. 내 API 키로 현재 실제 사용 가능한 모델 목록을 구글에서 직접 불러오기
+    # 1. 404 에러를 일으키는 만료/미지원 모델 자동 제외 필터링
+    valid_models = []
     try:
-        model_list = []
         for m in client.models.list():
-            # 모델 이름에서 앞쪽 'models/' 접두사 제거
             name = m.name.replace("models/", "") if hasattr(m, "name") else str(m)
-            model_list.append(name)
+            
+            # 텍스트 생성 지원 모델 중 만료된 preview/2.5-flash 등 제외
+            methods = getattr(m, "supported_generation_methods", [])
+            if "generateContent" in methods:
+                if "2.5-flash" not in name and "preview" not in name:
+                    valid_models.append(name)
     except Exception as e:
-        model_list = []
-        st.error(f"모델 목록을 불러오지 못했습니다: {e}")
+        st.error(f"모델 목록 불러오기 실패: {e}")
 
-    if model_list:
-        # 2. 내 계정에서 사용 가능한 모델을 드롭다운으로 선택
-        selected_model = st.selectbox("현재 계정에서 사용 가능한 모델 목록:", model_list)
+    if valid_models:
+        # 가장 안정적인 gemini-1.5-flash 또는 첫 번째 정상 모델을 기본 선택
+        default_idx = 0
+        for idx, m_name in enumerate(valid_models):
+            if "1.5-flash" in m_name:
+                default_idx = idx
+                break
+                
+        selected_model = st.selectbox(
+            "사용할 Gemini 모델 (404 발생 모델 자동 제외됨):", 
+            valid_models,
+            index=default_idx
+        )
         
         user_input = st.text_input("Gemini에게 질문을 입력하세요:", placeholder="예: 안녕? 오늘 기분 어때?")
         
@@ -36,9 +49,9 @@ if "GEMINI_API_KEY" in st.secrets:
                     st.success(f"답변 도착! (선택된 모델: {selected_model})")
                     st.write(response.text)
                 except Exception as e:
-                    st.error("⚠️ API 호출 중 에러가 발생했습니다:")
+                    st.error("⚠️ 호출 에러 발생. 드롭다운에서 다른 모델을 선택해 보세요:")
                     st.code(str(e))
     else:
-        st.warning("불러올 수 있는 활성화된 모델이 없습니다. API 키 상태를 확인해 주세요.")
+        st.error("⚠️ 사용 가능한 정상 모델을 찾지 못했습니다.")
 else:
     st.error("⚠️ Streamlit Cloud Secrets에 GEMINI_API_KEY가 설정되지 않았습니다.")
