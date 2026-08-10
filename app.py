@@ -6,7 +6,7 @@ from google import genai
 from google.genai import types
 
 # ==========================================
-# 1. 페이지 기본 설정 및 디자인 (Custom CSS)
+# 1. 페이지 기본 설정 및 커스텀 CSS
 # ==========================================
 st.set_page_config(
     page_title="세스코 맞춤 단가 & 견적 안내 AI",
@@ -14,22 +14,27 @@ st.set_page_config(
     layout="wide"
 )
 
-# 세련된 웹앱 UI 스타일링
+# 세련된 웹앱 UI 및 버튼 스타일링
 st.markdown("""
 <style>
-    /* 메인 폰트 및 배경 여백 조정 */
     .main { padding: 1.5rem 2rem; }
     
-    /* 카드형 컨테이너 스타일 */
-    .status-card {
-        background-color: #f8f9fa;
-        border-radius: 10px;
-        padding: 1rem;
-        border-left: 5px solid #0d6efd;
-        margin-bottom: 1rem;
+    /* FAQ 추천 버튼 전용 스타일 */
+    div.stButton > button.faq-btn {
+        width: 100%;
+        border-radius: 20px;
+        border: 1px solid #0d6efd;
+        color: #0d6efd;
+        background-color: #ffffff;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+    div.stButton > button.faq-btn:hover {
+        background-color: #0d6efd;
+        color: #ffffff;
     }
     
-    /* 마크다운 표 디자인 커스텀 (가독성 최적화) */
+    /* 마크다운 표 디자인 커스텀 */
     div[data-testid="stMarkdownContainer"] table {
         width: 100% !important;
         border-collapse: collapse !important;
@@ -55,20 +60,16 @@ st.markdown("""
     div[data-testid="stMarkdownContainer"] tr:nth-child(even) {
         background-color: #f8fafc !important;
     }
-    div[data-testid="stMarkdownContainer"] tr:hover {
-        background-color: #f1f5f9 !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 마스터 데이터 관리 파일 I/O 함수
+# 2. 마스터 데이터 I/O 함수
 # ==========================================
 DATA_FILE_PATH = "saved_data_context.txt"
 NAME_FILE_PATH = "saved_data_name.txt"
 
 def load_master_data():
-    """서버에 저장된 마스터 단가 데이터 불러오기"""
     if os.path.exists(DATA_FILE_PATH) and os.path.exists(NAME_FILE_PATH):
         with open(DATA_FILE_PATH, "r", encoding="utf-8") as f:
             context = f.read()
@@ -78,28 +79,23 @@ def load_master_data():
     return "", None
 
 def save_master_data(context, filename):
-    """서버에 마스터 단가 데이터 저장"""
     with open(DATA_FILE_PATH, "w", encoding="utf-8") as f:
         f.write(context)
     with open(NAME_FILE_PATH, "w", encoding="utf-8") as f:
         f.write(filename)
 
 def delete_master_data():
-    """서버의 마스터 단가 데이터 삭제"""
     if os.path.exists(DATA_FILE_PATH):
         os.remove(DATA_FILE_PATH)
     if os.path.exists(NAME_FILE_PATH):
         os.remove(NAME_FILE_PATH)
 
 def process_file_content(uploaded_file):
-    """업로드된 파일(시트 1 중심 엑셀, CSV, PDF)을 마크다운 텍스트로 변환"""
     extracted_text = ""
     filename = uploaded_file.name
 
     if filename.endswith(('.xlsx', '.xls')):
-        # 첫 번째 시트(Sheet 1)를 정밀하게 읽어옴
         df = pd.read_excel(uploaded_file, sheet_name=0)
-        # 빈 줄 및 불필요 열 제거 정리
         df = df.dropna(how="all")
         extracted_text = df.to_markdown(index=False)
         
@@ -115,16 +111,14 @@ def process_file_content(uploaded_file):
 
     return extracted_text, filename
 
-# 초기 데이터 로드
 file_context, uploaded_filename = load_master_data()
 
 # ==========================================
-# 3. 사이드바 (설정 & 관리자 메뉴)
+# 3. 사이드바 (설정, 관리자 메뉴, 다운로드)
 # ==========================================
 with st.sidebar:
     st.header("⚙️ 서비스 설정")
     
-    # 페르소나 및 역할 지정
     role_option = st.selectbox(
         "AI 프롬프트 모드:",
         ["견적 & 요금 비교 전문가", "비즈니스 마케팅 컨설턴트", "자유 질문 모드"]
@@ -148,7 +142,6 @@ with st.sidebar:
 
     st.divider()
     
-    # 마스터 데이터 상태 표시
     st.subheader("📊 학습 데이터 상태")
     if uploaded_filename:
         st.success(f"**적용 중:** `{uploaded_filename}`")
@@ -157,7 +150,27 @@ with st.sidebar:
 
     st.divider()
     
-    # 관리자 인증 & 단가표 변경 섹션
+    # 📄 [추가] 견적 상담 내역 다운로드 기능
+    st.subheader("📥 견적 상담 내역 저장")
+    if "messages" in st.session_state and len(st.session_state.messages) > 0:
+        chat_export_text = "=== 세스코 AI 견적 상담 내역 ===\n\n"
+        for msg in st.session_state.messages:
+            role_label = "고객" if msg["role"] == "user" else "세스코 AI"
+            chat_export_text += f"[{role_label}]\n{msg['content']}\n\n" + "-"*40 + "\n\n"
+            
+        st.download_button(
+            label="📄 상담 내역/견적서 다운로드 (.txt)",
+            data=chat_export_text,
+            file_name="세스코_견적_상담내역.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+    else:
+        st.caption("대화 진행 후 상담 내역을 다운로드할 수 있습니다.")
+
+    st.divider()
+    
+    # 관리자 패널
     st.subheader("🔑 관리자 패널")
     admin_password_secret = st.secrets.get("ADMIN_PASSWORD", "1234")
     input_pwd = st.text_input("비밀번호 입력:", type="password")
@@ -194,41 +207,57 @@ with st.sidebar:
 # ==========================================
 # 4. 메인 화면 & 챗봇 인터페이스
 # ==========================================
-st.title("💎 세스코 서비스 & 단가 안내 AI")
+st.title("💎 세스코 맞춤 서비스 & 단가 안내 AI")
 
 if uploaded_filename:
-    st.caption(f"📌 **참조 문서:** {uploaded_filename} | 시트 1 기반 정밀 검색 작동 중")
+    st.caption(f"📌 **참조 문서:** {uploaded_filename} | 실시간 검색 및 스트리밍 답변 작동 중")
 else:
     st.caption("📌 **참조 문서 없음** | 기본 지식 기반으로 대답 중입니다.")
 
 st.divider()
 
-# API 키 및 클라이언트 초기화
+# API 키 확인 및 메시지 초기화
 if "GEMINI_API_KEY" in st.secrets:
     api_key = st.secrets["GEMINI_API_KEY"].strip()
     client = genai.Client(api_key=api_key)
 
-    # 대화 기록 초기화 및 출력
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
+    # 이전 메시지 출력
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    # 사용자 질문 입력
-    if prompt := st.chat_input("궁금한 서비스나 평형별 단가를 물어보세요 (예: 15평 매장 방제 단독가 및 결합가 비교해줘)"):
-        # 유저 메시지 표시 및 저장
-        st.chat_message("user").markdown(prompt)
-        st.session_state.messages.append({"role": "user", "content": prompt})
+    # 💡 [추가] 자주 묻는 질문 (FAQ) 추천 원클릭 버튼
+    selected_faq = None
+    st.write("💡 **자주 묻는 질문 추천:**")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        if st.button("🔍 15평 매장 단가 비교해줘", use_container_width=True):
+            selected_faq = "15평 매장 기준 추천 서비스와 단독가, 결합가, 프로모션가를 비교해서 표로 보여줘."
+    with col2:
+        if st.button("💡 결합 할인 조건이 뭐야?", use_container_width=True):
+            selected_faq = "단독가와 결합가의 차이가 무엇이며, 결합 할인을 받기 위한 조건이 어떻게 되나요?"
+    with col3:
+        if st.button("🎁 이번 달 프로모션 안내해줘", use_container_width=True):
+            selected_faq = "현재 진행 중인 프로모션 할인 혜택과 대상 서비스를 정리해 주세요."
 
-        # 대화 히스토리 구성
+    # 입력창 처리 (직접 입력 또는 FAQ 버튼 클릭)
+    prompt_input = st.chat_input("궁금한 서비스나 평형별 단가를 물어보세요...")
+    
+    # 질문 결정 (FAQ 버튼 우선)
+    user_prompt = selected_faq if selected_faq else prompt_input
+
+    if user_prompt:
+        st.chat_message("user").markdown(user_prompt)
+        st.session_state.messages.append({"role": "user", "content": user_prompt})
+
         history = []
         for msg in st.session_state.messages[:-1]:
             role = "user" if msg["role"] == "user" else "model"
             history.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-        # 최종 시스템 instruction 결합
         final_system_instruction = base_instruction
         if file_context:
             final_system_instruction += (
@@ -238,22 +267,31 @@ if "GEMINI_API_KEY" in st.secrets:
                 f"{file_context}"
             )
 
-        # AI 답변 생성
+        # 💡 [추가] 실시간 스트리밍(Streaming) 답변 출력
         with st.chat_message("assistant"):
-            with st.spinner("단가표 데이터를 분석 중입니다..."):
-                try:
-                    chat = client.chats.create(
-                        model="gemini-3-flash-preview",
-                        config=types.GenerateContentConfig(
-                            system_instruction=final_system_instruction
-                        ),
-                        history=history
-                    )
-                    response = chat.send_message(prompt)
-                    st.markdown(response.text)
-                    
-                    st.session_state.messages.append({"role": "assistant", "content": response.text})
-                except Exception as e:
-                    st.error(f"⚠️ 답변 생성 실패: {e}")
+            try:
+                chat = client.chats.create(
+                    model="gemini-3-flash-preview",
+                    config=types.GenerateContentConfig(
+                        system_instruction=final_system_instruction
+                    ),
+                    history=history
+                )
+                
+                # 실시간 스트리밍 응답 받기
+                response_stream = chat.send_message_stream(user_prompt)
+                
+                def stream_generator():
+                    for chunk in response_stream:
+                        yield chunk.text
+
+                # 화면에 실시간으로 타자 치듯 출력
+                full_response = st.write_stream(stream_generator())
+                
+                # 세션에 저장
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                st.rerun()
+            except Exception as e:
+                st.error(f"⚠️ 답변 생성 실패: {e}")
 else:
     st.error("⚠️ Streamlit Cloud Secrets에 GEMINI_API_KEY가 설정되지 않았습니다.")
