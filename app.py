@@ -2,32 +2,40 @@ import streamlit as st
 from google import genai
 
 st.set_page_config(page_title="우리 팀 스몰 제미나이", page_icon="🤖")
-st.title("🤖 우리 팀 스몰 제미나이 (진단 모드)")
+st.title("🤖 우리 팀 스몰 제미나이")
 
 if "GEMINI_API_KEY" in st.secrets:
-    # 1. Secrets 키 앞뒤 공백 자동 제거 및 입력 확인
     raw_key = st.secrets["GEMINI_API_KEY"].strip()
-    st.info(f"🔑 현재 적용된 키: `{raw_key[:5]}...{raw_key[-4:]}` (총 {len(raw_key)}자)")
-
-    # 2. Gemini 클라이언트 생성
     client = genai.Client(api_key=raw_key)
     
     user_input = st.text_input("질문을 입력해 보세요:", placeholder="예: 안녕? 테스트 중이야.")
     
     if user_input:
-        with st.spinner("구글 서버로 요청 보내는 중..."):
-            try:
-                # 3. Gemini 호출
-                response = client.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=user_input
-                )
-                st.success("🎉 성공! 구글 API가 정상 작동합니다.")
-                st.write(response.text)
-                
-            except Exception as e:
-                # 4. 숨겨진 진짜 구글 에러 메시지를 화면에 직접 출력
-                st.error("❌ 구글 API 서버에서 거절 에러가 발생했습니다:")
-                st.code(str(e))
+        # 호출 가능한 모델 후보 목록 (한도가 남아있는 모델을 차례대로 탐색)
+        candidate_models = [
+            "gemini-2.5-flash",
+            "gemini-2.0-flash-lite",
+            "gemini-1.5-flash-latest",
+            "gemini-1.5-flash"
+        ]
+        
+        success = False
+        with st.spinner("구글 서버와 통신 가능한 모델을 연결하는 중..."):
+            for model_name in candidate_models:
+                try:
+                    response = client.models.generate_content(
+                        model=model_name,
+                        contents=user_input
+                    )
+                    st.success(f"🎉 성공! [{model_name}] 모델로 연결되었습니다.")
+                    st.write(response.text)
+                    success = True
+                    break  # 성공 시 탐색 중단
+                except Exception as e:
+                    # 실패 시 다음 모델로 넘어감
+                    continue
+        
+        if not success:
+            st.error("❌ 연결 가능한 무료 모델이 없습니다. 구글 AI 스튜디오에서 결제 카드 등록(Pay-as-you-go) 또는 새로운 구글 계정으로 키를 생성해야 합니다.")
 else:
     st.error("⚠️ Streamlit Secrets에 GEMINI_API_KEY가 설정되지 않았습니다.")
