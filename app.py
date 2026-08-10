@@ -17,7 +17,7 @@ if "GEMINI_API_KEY" in st.secrets:
             try:
                 # 최신 무료 플랜 지원 모델 호출
                 response = client.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-2.0-flash-lite",
                     contents=user_input
                 )
                 st.success("답변 도착!")
