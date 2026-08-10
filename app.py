@@ -1,28 +1,33 @@
 import streamlit as st
 from google import genai
 
-# 1. 웹페이지 기본 설정 및 타이틀
 st.set_page_config(page_title="우리 팀 스몰 제미나이", page_icon="🤖")
-st.title("🤖 우리 팀 스몰 제미나이 (Day 1)")
-st.write("🎉 축하합니다! 1일차 테스트 웹사이트가 준비되었습니다.")
-st.write("---")
+st.title("🤖 우리 팀 스몰 제미나이 (진단 모드)")
 
-# 2. Streamlit Secrets에서 API 키를 안전하게 불러오기
 if "GEMINI_API_KEY" in st.secrets:
-    # Gemini 클라이언트 생성
-    client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
+    # 1. Secrets 키 앞뒤 공백 자동 제거 및 입력 확인
+    raw_key = st.secrets["GEMINI_API_KEY"].strip()
+    st.info(f"🔑 현재 적용된 키: `{raw_key[:5]}...{raw_key[-4:]}` (총 {len(raw_key)}자)")
+
+    # 2. Gemini 클라이언트 생성
+    client = genai.Client(api_key=raw_key)
     
-    # 질문 입력창
-    user_input = st.text_input("Gemini에게 첫 인사를 건네보세요:", placeholder="예: 안녕? 오늘 기분 어때?")
+    user_input = st.text_input("질문을 입력해 보세요:", placeholder="예: 안녕? 테스트 중이야.")
     
     if user_input:
-        with st.spinner("Gemini가 답변을 생각 중입니다..."):
-            # Gemini 1.5 Flash 모델 호출
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=user_input
-            )
-            st.success("답변 도착!")
-            st.write(response.text)
+        with st.spinner("구글 서버로 요청 보내는 중..."):
+            try:
+                # 3. Gemini 호출
+                response = client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=user_input
+                )
+                st.success("🎉 성공! 구글 API가 정상 작동합니다.")
+                st.write(response.text)
+                
+            except Exception as e:
+                # 4. 숨겨진 진짜 구글 에러 메시지를 화면에 직접 출력
+                st.error("❌ 구글 API 서버에서 거절 에러가 발생했습니다:")
+                st.code(str(e))
 else:
-    st.error("⚠️ API 키가 설정되지 않았습니다. Streamlit Cloud 설정(Secrets)에 GEMINI_API_KEY를 입력해 주세요.")
+    st.error("⚠️ Streamlit Secrets에 GEMINI_API_KEY가 설정되지 않았습니다.")
