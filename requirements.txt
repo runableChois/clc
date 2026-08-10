@@ -4,3 +4,4 @@ pandas
 openpyxl
 pypdf
 tabulate
+pillow
