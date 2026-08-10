@@ -1,2 +1,6 @@
 streamlit
 google-genai
+pandas
+openpyxl
+pypdf
+tabulate
