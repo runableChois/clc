@@ -17,7 +17,7 @@ if "GEMINI_API_KEY" in st.secrets:
     
     if user_input:
         with st.spinner("Gemini가 답변을 생각 중입니다..."):
-            # Gemini 2.5 Flash 모델 호출
+            # Gemini 1.5 Flash 모델 호출
             response = client.models.generate_content(
                 model="gemini-2.0-flash",
                 contents=user_input
