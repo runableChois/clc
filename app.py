@@ -3,6 +3,7 @@ import json
 import os
 import re
 import urllib.request
+from datetime import datetime, timedelta
 
 from PIL import Image, ImageDraw, ImageFont
 from google import genai
@@ -246,22 +247,41 @@ def delete_all_knowledge_data():
 knowledge_context, learned_files_str = load_knowledge_data()
 learned_files_list = [f for f in learned_files_str.split(",") if f]
 
-def save_sales_log(planner_name, client_name, proposed_deal, equipment_status, equipment_item, reaction, memo):
-    """영업 일지 데이터 저장"""
+def save_sales_log(planner_name, client_name, proposed_deal, equipment_status, equipment_item, reaction, memo, install_date=None):
+    """영업 일지 데이터 저장 (3일 체험 스케줄 자동 계산 포함)"""
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    today_date_str = install_date if install_date else datetime.now().strftime("%Y-%m-%d")
+    
+    # 체험장비 설치 시 D+3 피드백 예정일 자동 산정
+    feedback_due = "-"
+    if equipment_status == "설치 완료":
+        try:
+            inst_dt = datetime.strptime(today_date_str, "%Y-%m-%d")
+            feedback_due = (inst_dt + timedelta(days=3)).strftime("%Y-%m-%d")
+        except:
+            feedback_due = (datetime.now() + timedelta(days=3)).strftime("%Y-%m-%d")
+
     new_data = pd.DataFrame([{
-        "작성일시": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "작성일시": now_str,
         "담당플래너": planner_name,
         "고객/매장명": client_name,
         "제안서비스/견적가": proposed_deal,
         "체험장비설치": equipment_status,
         "설치장비품목": equipment_item if equipment_status == "설치 완료" else "-",
+        "설치일자": today_date_str if equipment_status == "설치 완료" else "-",
+        "3일체험_피드백예정일": feedback_due,
         "고객반응/상태": reaction,
         "영업메모": memo
     }])
+    
     if os.path.exists(SALES_LOG_PATH):
         old_df = pd.read_csv(SALES_LOG_PATH)
         if "담당팀원" in old_df.columns:
             old_df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
+        # 필수 열 보장
+        for col in ["설치일자", "3일체험_피드백예정일"]:
+            if col not in old_df.columns:
+                old_df[col] = "-"
         df = pd.concat([old_df, new_data], ignore_index=True)
     else:
         df = new_data
@@ -289,7 +309,7 @@ def save_equipment_inventory(df):
     df.to_csv(EQUIPMENT_LOG_PATH, index=False, encoding="utf-8-sig")
 
 # ==========================================
-# 4. 사이드바 UI 및 프롬프트 설정
+# 4. 사이드바 UI 및 고도화 시스템 프롬프트
 # ==========================================
 with st.sidebar:
     st.header("⚙️ 영업 모드 설정")
@@ -307,19 +327,22 @@ with st.sidebar:
     if role_option == "경기서북부 상권 분석 & 영업지 추천 (BI Pro)":
         base_instruction = (
             "당신은 경기도 고양시, 파주시, 김포시, 인천 검단구 지역 전문 세스코 영업 상권 컨설턴트이자 최고 영업 멘토입니다.\n"
-            "플래너가 특정 상권이나 보유 체험장비/제품을 언급하면, 아래 프레임워크에 따라 현장에서 즉시 활용할 수 있는 매우 상세하고 구체적인 영업 지침서 형태로 답변하세요.\n\n"
-            "[답변 작성 필수 프레임워크]\n"
-            "1. 🎯 보유 장비/제품 맞춤 타겟 업종 매칭: 장비의 기능적 특성(향기, 탈취, 살균 등)에 딱 맞는 최적 타겟 업종과 이유를 명확히 제시하세요.\n"
-            "2. 📍 건물별 입점 업종 분포, 정확한 주소 및 네이버 지도 길찾기:\n"
-            "   - 방문을 추천하는 주요 건물/동의 입점 업종 구성(예: 1층 의류/카페, 2~3층 네일/헤어/피부관리, 4층 이상 병의원/학원 등)을 층별/점포별로 상세히 구체적으로 설명하세요.\n"
-            "   - 추천 건물/동의 정확한 도로명 주소 및 지번 주소를 명시하세요.\n"
+            "플래너가 특정 상권이나 보유 체험장비/제품을 언급하면, 아래 6단계 실전 영업 지침서 형태로 매우 상세하고 구체적으로 답변하세요.\n\n"
+            "[답변 작성 필수 6단계 프레임워크]\n"
+            "1. 🎯 보유 장비/제품 맞춤 타겟 업종 매칭: 장비의 기능적 특성(향기, 탈취, 살균 등)에 딱 맞는 최적 타겟 업종을 제시하세요. (모든 체험장비는 '3일 무료 체험' 기준)\n"
+            "2. ⏰ 업종별 사장님 상주 '골든타임' 시간대: 사장님을 직접 만나서 대화할 확률이 가장 높은 시간대(뷰티 10~11시반, 외식/주점 14시반~16시반, 학원 13~15시 등)를 배치하세요.\n"
+            "3. 📍 건물별 입점 업종 분포, 정확한 주소 및 네이버 지도 길찾기:\n"
+            "   - 방문을 추천하는 주요 건물/동의 입점 업종 구성(층별/점포별)을 상세히 설명하세요.\n"
+            "   - 건물/동의 정확한 도로명 주소를 명시하세요.\n"
             "   - 모바일에서 바로 터치하여 네이버 지도로 열 수 있도록 **네이버 지도 링크를 최우선(필수)**으로 제공하세요.\n"
             "     * 네이버 지도 URL 형식: [📍 네이버 지도로 위치 보기](https://map.naver.com/v5/search/건물명또는주소)\n"
-            "     * 카카오맵 URL 형식: [📍 카카오맵으로 위치 보기](https://map.kakao.com/?q=건물명또는주소)\n"
-            "3. 💬 체험장비 무상 설치 유치 킬러 피칭 화법: 해당 건물 및 업종 사장님의 거절을 무력화하는 100% 무상 시범 설치 대화 대본(Script)을 작성하세요.\n"
-            "4. 💡 현장 시연 및 최적 설치 위치 전략: 효과적인 현장 시연 방법 및 추천 설치 장소(예: 카운터 옆, 피팅룸, 대기실 소파 옆 등)를 안내하세요.\n"
-            "5. 📋 방문 구역 통합 요약표: [방문순서 | 건물명/동 | 대표 도로명주소 | 주요 입점 업종 & 추천 층 | 네이버 지도 바로가기] 구조의 표로 깔끔히 정리하세요.\n\n"
-            "플래너가 스마트폰을 보며 건물 입점 매장을 파악하고, 네이버 지도 링크로 바로 이동할 수 있도록 완벽하게 안내하세요."
+            "4. 🛡️ '네이버 리뷰 & 매출 방지 ROI' 설득 논리 및 3일 체험 피칭 스크립트:\n"
+            "   - '스펙 설명'이 아닌 '네이버 악성 리뷰 방지 및 매장 평점 상승 = 매출 보호' 논리로 사장님을 설득하세요.\n"
+            "   - '단 3일간 1원도 안 받고 설치해 드린다. 3일 뒤 손님 반응 없으면 깔끔히 회수하겠다'는 거절 무력화 멘트를 작성하세요.\n"
+            "5. 💬 3일 차 피드백 요청 & 최종 계약 전환(Closing) 화법:\n"
+            "   - 3일 무상 체험 종료 시점에 사장님께 효과 피드백을 물어보며 유료 계약으로 전환시키는 자연스러운 방문/콜 스크립트를 작성하세요.\n"
+            "6. 📋 방문 구역 통합 요약표: [방문순서 | 건물명/동 | 대표 도로명주소 | 주요 입점 업종 & 골든타임 | 네이버 지도 바로가기] 구조의 표로 정리하세요.\n\n"
+            "플래너가 현장에서 스마트폰으로 매장 정보를 확인하고, 3일 체험 유치 및 피드백 요청까지 완벽하게 수행할 수 있도록 안내하세요."
         )
     elif role_option == "견적 & 요금 비교 전문가 (학습 문서 기반 Pro)":
         base_instruction = (
@@ -358,7 +381,7 @@ with st.sidebar:
         admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📊 영업 대시보드", "📦 체험장비 운용/할당 설정", "📁 누적 문서 학습(PDF)"])
         
         with admin_tab1:
-            st.write("📈 **실시간 영업 성과 대시보드**")
+            st.write("📈 **실시간 영업 성과 & 3일 체험 전환 대시보드**")
             if os.path.exists(SALES_LOG_PATH):
                 logs_df = pd.read_csv(SALES_LOG_PATH)
                 if "담당팀원" in logs_df.columns and "담당플래너" not in logs_df.columns:
@@ -378,11 +401,20 @@ with st.sidebar:
                 st.subheader("1️⃣ 플래너별 체험장비 보유 및 설치 현황")
                 st.dataframe(merged_inv[["담당플래너", "전체 보유대수", "설치대수", "현재 수중 보유대수", "설치활동률(%)"]], use_container_width=True)
                 
-                chart_data = merged_inv.set_index("담당플래너")[["전체 보유대수", "설치대수", "현재 수중 보유대수"]]
-                st.bar_chart(chart_data)
-                
+                # 🔥 [신규] 3일 체험 피드백 요청 대시보드
                 st.divider()
-                st.subheader("2️⃣ 체험장비 설치 후 계약 성사율 분석")
+                st.subheader("⏰ 2️⃣ [3일 체험 완료] 피드백 요청 & 계약 클로징 대상 매장")
+                if "3일체험_피드백예정일" in logs_df.columns:
+                    active_trials = logs_df[(logs_df["체험장비설치"] == "설치 완료") & (logs_df["3일체험_피드백예정일"] != "-")]
+                    if len(active_trials) > 0:
+                        disp_cols = ["담당플래너", "고객/매장명", "설치장비품목", "설치일자", "3일체험_피드백예정일", "고객반응/상태"]
+                        st.dataframe(active_trials[disp_cols], use_container_width=True)
+                        st.info("💡 **3일 차 피드백 추천 멘트:** '사장님! 3일간 사용해 보시니 어떠셨어요? 단골손님들이 향이나 공기 좋아졌다고 안 하시던가요? 오늘부터 할인가로 계약 확정해 드릴까요?'")
+                    else:
+                        st.caption("현재 3일 체험 진행 중인 매장이 없습니다.")
+
+                st.divider()
+                st.subheader("3️⃣ 체험장비 설치 후 계약 성사율 분석")
                 installed_group = logs_df[logs_df["체험장비설치"] == "설치 완료"]
                 non_installed_group = logs_df[logs_df["체험장비설치"] != "설치 완료"]
                 
@@ -400,11 +432,6 @@ with st.sidebar:
                 with m_col2:
                     st.metric(label="❌ 미설치건 계약 성사율", value=f"{non_rate:.1f}%", delta=f"{non_success}건 성공 / 총 {total_non}건")
                     
-                st.divider()
-                st.subheader("3️⃣ 인기 제안 상품 & 서비스 순위")
-                product_counts = logs_df["제안서비스/견적가"].value_counts().head(5)
-                st.bar_chart(product_counts)
-                
                 st.divider()
                 st.write("📋 **전체 영업일지 데이터 대장:**")
                 st.dataframe(logs_df, use_container_width=True)
@@ -432,8 +459,9 @@ with st.sidebar:
                 
                 installed_logs = logs_df[logs_df["체험장비설치"] == "설치 완료"]
                 if len(installed_logs) > 0:
-                    display_cols = ["작성일시", "담당플래너", "고객/매장명", "설치장비품목", "고객반응/상태", "영업메모"]
-                    st.dataframe(installed_logs[display_cols], use_container_width=True)
+                    display_cols = ["작성일시", "담당플래너", "고객/매장명", "설치장비품목", "3일체험_피드백예정일", "고객반응/상태", "영업메모"]
+                    disp_cols_exist = [c for c in display_cols if c in installed_logs.columns]
+                    st.dataframe(installed_logs[disp_cols_exist], use_container_width=True)
                 else:
                     st.info("현재 현장에 설치된 체험장비 내역이 없습니다.")
             else:
@@ -505,6 +533,30 @@ if "GEMINI_API_KEY" in st.secrets:
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
+    # 🔥 [고도화 2] 현장 거절 대응 1초 반박 퀵카드 (익스팬더)
+    with st.expander("⚡ **현장 사장님 거절 반응 '1초 반박' 퀵카드 (원터치)**", expanded=False):
+        st.caption("현장에서 사장님이 거절 멘트를 던졌을 때 버튼을 누르면 1초 만에 최적의 반박 피칭 스크립트가 출력됩니다.")
+        q_col1, q_col2, q_col3 = st.columns(3)
+        quick_rejection_prompt = None
+        
+        with q_col1:
+            if st.button("🙅 '사장님 지금 안 계세요'", use_container_width=True):
+                quick_rejection_prompt = "고객/매장에서 '사장님 지금 안 계세요'라고 거절했을 때, 직원/알바생을 통해 사장님 명함을 확보하고 3일 무료 체험 쿠폰을 전달하는 1초 반박 피칭 스크립트를 알려줘."
+            if st.button("🙅 '기존 디퓨저/공청기 있어요'", use_container_width=True):
+                quick_rejection_prompt = "사장님이 '기존에 쓰는 디퓨저나 공기청정기 있어요'라고 거절할 때, 시중 디퓨저의 악취 은폐 한계와 세스코 에어제닉/에어퍼퓸의 살균·분해 차별점을 강조하는 3일 체험 피칭 스크립트를 알려줘."
+        
+        with q_col2:
+            if st.button("🙅 '우린 냄새 안 나고 깨끗해요'", use_container_width=True):
+                quick_rejection_prompt = "사장님이 '우리 매장은 깨끗해서 필요 없어요'라고 할 때, 깨끗한 매장에 시그니처 향을 더해 프리미엄 네이버 리뷰를 확보하는 3일 체험 설득 멘트를 알려줘."
+            if st.button("🙅 '공짜라 하고 돈 요구할 거죠?'", use_container_width=True):
+                quick_rejection_prompt = "사장님이 '무상 설치해 주고 나중에 돈 요구하려는 것 아니냐'며 의심할 때, 100% 본사 지원 3일 무상 체험이며 마음에 안 들면 단 1원 없이 회수한다는 완벽한 안심 스크립트를 알려줘."
+                
+        with q_col3:
+            if st.button("🙅 '월 비용이 부담돼요'", use_container_width=True):
+                quick_rejection_prompt = "사장님이 '월 이용료가 부담된다'고 할 때, 네이버 악성 리뷰 1건 방지로 얻는 매출 보호 ROI 가치를 3일 체험 제안과 함께 설명하는 반박 화법을 알려줘."
+            if st.button("📞 '3일 체험 후 피드백 콜 화법'", use_container_width=True):
+                quick_rejection_prompt = "3일간 무상 체험 장비 설치가 끝난 사장님에게 전화/방문하여 3일간의 효과 피드백을 물어보고 공식 유료 계약으로 전환(Closing)시키는 피드백 요청 스크립트를 작성해줘."
+
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
@@ -516,16 +568,16 @@ if "GEMINI_API_KEY" in st.secrets:
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             if st.button("📌 파주 야당역/운정 상권", use_container_width=True):
-                selected_faq = "파주 야당역 음식점/유흥 상권 및 운정 신도시 상가의 특징, 포진 업종, 세스코 타겟 제안 전략을 알려줘."
+                selected_faq = "파주 야당역 음식점/유흥 상권 및 운정 신도시 상가의 특징, 포진 업종, 3일 체험 타겟 세스코 상품 및 골든타임 동선과 네이버 지도 주소를 알려줘."
         with col2:
             if st.button("📌 김포 구래동/운양동 상권", use_container_width=True):
-                selected_faq = "김포 구래동 24시 외식 상권과 운양동 카페/병원 상권의 특성과 추천 서비스를 분석해줘."
+                selected_faq = "김포 구래동 24시 외식 상권과 운양동 카페/병원 상권의 특성, 입점 건물 주소(네이버 지도), 3일 체험 제안 전략을 분석해줘."
         with col3:
             if st.button("📌 검단신도시 아라동 상권", use_container_width=True):
-                selected_faq = "인천 검단신도시(아라동) 신규 입주 상가 건물들의 업종 특징과 초기 계약 타겟 포인트를 알려줘."
+                selected_faq = "인천 검단신도시(아라동) 신규 입주 상가 건물들의 업종 특징, 네이버 지도 주소, 3일 체험 타겟 및 골든타임 피칭 전략을 알려줘."
         with col4:
             if st.button("📌 고양 라페스타/삼송 상권", use_container_width=True):
-                selected_faq = "고양 라페스타 구상권과 삼송/덕은 신규 오피스 상권의 주요 차이점과 맞춤 영업 방식을 분석해줘."
+                selected_faq = "고양 라페스타 구상권과 삼송/덕은 신규 오피스 상권의 주요 건물별 입점 업종, 네이버 지도 주소, 에어퍼퓸/에어제닉 3일 체험 침투 전략을 분석해줘."
     else:
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -545,9 +597,15 @@ if "GEMINI_API_KEY" in st.secrets:
         if uploaded_img:
             st.image(uploaded_img, caption="첨부된 사진 진단 중...", width=200)
 
-    prompt_input = st.chat_input("질문을 입력하세요... (예: 야당역 상권 알려줘, 또는 독일바퀴 견적 얼마야?)")
+    prompt_input = st.chat_input("질문을 입력하세요... (예: 라페스타 에어퍼퓸 3일 체험 어디가 좋아?)")
     
-    user_prompt = selected_faq if selected_faq else prompt_input
+    # 거절 반박 퀵카드 -> 퀵 버튼 -> 입력창 순 적용
+    if quick_rejection_prompt:
+        user_prompt = quick_rejection_prompt
+    elif selected_faq:
+        user_prompt = selected_faq
+    else:
+        user_prompt = prompt_input
 
     if user_prompt:
         st.chat_message("user").markdown(user_prompt)
@@ -569,12 +627,12 @@ if "GEMINI_API_KEY" in st.secrets:
         elif role_option == "경기서북부 상권 분석 & 영업지 추천 (BI Pro)":
             final_system_instruction += (
                 "\n\n[경기 서북부 상권 분석 가이드]\n"
-                "고양, 파주, 김포, 검단 지역 특성에 집중하여 업종 분포, 신도시/구상권 차이, 최적 영업 전략을 '추정 데이터'임을 밝히고 핵심만 제안하세요."
+                "고양, 파주, 김포, 검단 지역 특성에 집중하여 층별 입점 업종, 점주 상주 골든타임, 네이버 지도 URL, 네이버 리뷰 ROI 설득 및 '3일 무상 체험 피드백' 프로세스를 명확히 제안하세요."
             )
 
         with st.chat_message("assistant"):
             try:
-                # 💡 [핵심 수정] Gemini 3 시리즈 모델 적용
+                # 최신 Gemini 3 모델 적용
                 chat = client.chats.create(
                     model="gemini-3-flash-preview", 
                     config=types.GenerateContentConfig(
@@ -616,7 +674,7 @@ if "GEMINI_API_KEY" in st.secrets:
                         f"다음 견적 상담 내용을 바탕으로 고객에게 카카오톡으로 전달할 친절하고 정중한 요약 메시지를 작성해 줘.\n"
                         f"[작성 조건]\n"
                         f"1. 전체 글자 수는 공백 포함 **최대 300자 이내**로 매우 간결하게 작성할 것.\n"
-                        f"2. 인사말은 1줄로 최소화하고 [매장명/추천서비스/월단가/주요혜택]만 불렛포인트로 명확히 적을 것.\n"
+                        f"2. 인사말은 1줄로 최소화하고 [매장명/추천서비스/월단가/주요혜택(3일 무상체험 포함)]만 불렛포인트로 명확히 적을 것.\n"
                         f"3. 한눈에 읽기 쉬운 카톡 전송용으로 만들 것.\n"
                         f"4. AI가 스스로 3번 점검한 정확한 제품명과 가격이어야 함.\n\n"
                         f"견적 내용:\n{recent_chat}"
@@ -632,12 +690,12 @@ if "GEMINI_API_KEY" in st.secrets:
                         f"JSON 구조 예시:\n"
                         f"{{\n"
                         f'  "title": "15평 매장 맞춤 위생 솔루션 견적",\n'
-                        f'  "subtitle": "해충방제 + 위생케어 결합 할인 적용가",\n'
+                        f'  "subtitle": "3일 무상 체험 + 방제 결합 할인가",\n'
                         f'  "items": [\n'
-                        f'    {{"name": "보일러/유충 방제", "price": "45,000원/월", "note": "월 1회 방문 점검"}},\n'
+                        f'    {{"name": "에어제닉/에어퍼퓸", "price": "3일 무료체험", "note": "설치비 면제 혜택"}},\n'
                         f'    {{"name": "바이러스케어", "price": "30,000원/월", "note": "방제 결합 할인가"}}\n'
                         f'  ],\n'
-                        f'  "promotion": "초기 설치비 면제 혜택"\n'
+                        f'  "promotion": "3일 체험 후 피드백 만족 시 추가 할인"\n'
                         f"}}\n\n"
                         f"견적 내용:\n{recent_chat}"
                     )
@@ -649,9 +707,9 @@ if "GEMINI_API_KEY" in st.secrets:
                     else:
                         card_data = {
                             "title": "세스코 맞춤 솔루션 견적",
-                            "subtitle": "공식 단가 기준 안내",
-                            "items": [{"name": "맞춤 위생 서비스", "price": "상담가", "note": "상세 문의"}],
-                            "promotion": "프로모션 및 결합 할인 조건 적용 가능"
+                            "subtitle": "3일 무료 체험 프로모션 적용",
+                            "items": [{"name": "맞춤 위생 서비스", "price": "3일 무상체험", "note": "상세 문의"}],
+                            "promotion": "3일 체험 후 만족 시 결합 할인 적용"
                         }
                     
                     st.subheader("🖼️ **2. 카톡 전송용 완성형 그래픽 견적 카드**")
@@ -670,28 +728,38 @@ if "GEMINI_API_KEY" in st.secrets:
                     st.error(f"⚠️ 카드 이미지 생성 중 오류가 발생했습니다: {img_err}")
 
     # ==========================================
-    # 📝 현장 영업일지 기록
+    # 📝 현장 영업일지 기록 (3일 체험 스케줄 자동 연동)
     # ==========================================
-    with st.expander("📝 **플래너 현장 영업 미팅 일지 기록하기**"):
-        st.caption("오늘 방문한 매장/고객과의 상담 내역을 기록하면 전체 영업 대장에 저장되고 재고가 반영됩니다.")
+    with st.expander("📝 **플래너 현장 영업 미팅 일지 기록하기 (3일 체험 관리)**"):
+        st.caption("방문 매장 내역을 기록하세요. '설치 완료' 입력 시 3일 뒤 피드백 및 계약 클로징 일정이 대시보드에 자동 등록됩니다.")
         with st.form("sales_log_form", clear_on_submit=True):
             col_a, col_b = st.columns(2)
             with col_a:
                 planner_input = st.text_input("담당 플래너 이름 * (예: 홍길동)")
                 client_input = st.text_input("방문 매장/고객명 * (예: 대박식당)")
-                p_deal = st.text_input("제안 서비스 및 견적가 (예: 방제+바이러스 결합 월 65,000원)")
+                p_deal = st.text_input("제안 서비스 및 견적가 (예: 에어퍼퓸 3일체험 + 월 35,000원)")
+                install_date_input = st.date_input("🗓️ 체험장비 설치일자", value=datetime.now())
             with col_b:
                 eq_status = st.selectbox("🎁 체험장비 설치 여부", ["미설치", "설치 완료"])
-                eq_item = st.text_input("설치한 체험장비 품목 (예: 공기살균기 B타입, 포충기 등)")
-                reaction = st.selectbox("고객 반응/상태", ["계약 완료 🎉", "긍정적 (계약 임박)", "검토 중 (재방문 필요)", "보류 (가격 부담)"])
-                memo = st.text_input("영업 메모 (예: 다음 주 화요일에 사장님 재방문 예정)")
+                eq_item = st.text_input("설치한 체험장비 품목 (예: 에어퍼퓸, 에어제닉 B타입 등)")
+                reaction = st.selectbox("고객 반응/상태", ["계약 완료 🎉", "3일 무상체험 설치 완료 🎁", "긍정적 (재방문 필요)", "보류 (가격 부담)"])
+                memo = st.text_input("영업 메모 (예: 3일 뒤 목요일 오후 2시 방문하여 피드백 확인 및 계약서 작성)")
                 
-            submit_log = st.form_submit_button("💾 영업일지 저장 및 대시보드 반영하기", use_container_width=True)
+            submit_log = st.form_submit_button("💾 영업일지 저장 및 3일 체험 스케줄 연동", use_container_width=True)
             if submit_log:
                 if planner_input and client_input:
-                    with st.spinner("영업일지 저장 중..."):
-                        save_sales_log(planner_input, client_input, p_deal, eq_status, eq_item, reaction, memo)
-                        st.toast("✅ 영업일지 저장 완료!", icon="🎉")
+                    with st.spinner("영업일지 저장 및 3일 체험 일정 계산 중..."):
+                        save_sales_log(
+                            planner_input, 
+                            client_input, 
+                            p_deal, 
+                            eq_status, 
+                            eq_item, 
+                            reaction, 
+                            memo, 
+                            install_date=install_date_input.strftime("%Y-%m-%d")
+                        )
+                        st.toast("✅ 영업일지 저장 및 3일 체험 피드백 일정이 자동 연동되었습니다!", icon="🎉")
                         st.rerun()
                 else:
                     st.warning("⚠️ 필수 항목(플래너 이름, 고객명)을 입력해 주세요.")
