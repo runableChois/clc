@@ -6,7 +6,6 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 
-from openai import OpenAI
 from PIL import Image, ImageDraw, ImageFont
 from google import genai
 from google.genai import types
@@ -14,6 +13,13 @@ import pandas as pd
 from pypdf import PdfReader
 import streamlit as st
 import streamlit.components.v1 as components
+
+# OpenAI 라이브러리 안전 임포트 시도
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
 
 # ==========================================
 # 1. 페이지 기본 설정 및 모바일 UI 최적화 CSS
@@ -156,12 +162,12 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. OpenAI DALL-E 3 기반 고품격 디자인 이미지 생성 함수
+# 3. 안전한 DALL-E 3 이미지 생성 함수
 # ==========================================
 def generate_dalle3_marketing_card(store_name, industry, solution_text):
-    """
-    OpenAI DALL-E 3 API를 호출하여 세스코 브랜드 감성의 전문 디자인 마케팅 이미지를 실시간 생성
-    """
+    if not OPENAI_AVAILABLE:
+        return None, "OpenAI 라이브러리가 설치되지 않았습니다."
+    
     openai_key = st.secrets.get("OPENAI_API_KEY", "").strip()
     if not openai_key:
         return None, "OpenAI API Key가 설정되지 않았습니다."
