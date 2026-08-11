@@ -167,7 +167,7 @@ CESCO_MASTER_SYSTEM_INSTRUCTION = """
 3. 탱크형 정수기: '더슬림', '더블', '더맥스' (업소용 대용량, 다중 필터링, 연속 출수)
 4. 직수 정수기: '살균온', '살균온 얼음정수기' (UVnano 코크/아이스룸 살균, 직수형 위생 정수)
 5. 비데: '파워방수비데', '살균방수비데', '듀얼비데', '올인원비데' (IPX6 강력 방수, 전해수/UV 노즐 살균)
-6. 향기 제품: '에어퍼퓸200', '에어제닉' (공간 맞춤형 자동 향기 분사 및 악취 분해)
+6. 향기 제품: 'エ어퍼퓸200(에어퍼퓸200)', '에어제닉' (공간 맞춤형 자동 향기 분사 및 악취 분해)
 7. 화장실 케어 제품: '프레쉬제닉' (변기 세정·탈취), '핸드제닉' (비접촉 손세정기), '새니제닉' (비접촉 손소독기)
 8. 날벌레 방지 제품: '에어커튼' (출입구 바람 차단), '포충등' (실내 자외선 포충/유인)
 
@@ -613,7 +613,7 @@ if "GEMINI_API_KEY" in st.secrets:
             selected_faq = "검단신도시 아라동"
     with col4:
         if st.button("📌 고양 라페스타 B동", use_container_width=True):
-            selected_faq = "라페스타 B동"
+            selected_faq = "고양 라페스타 B동"
 
     st.write("---")
     
@@ -625,7 +625,6 @@ if "GEMINI_API_KEY" in st.secrets:
 
     prompt_input = st.chat_input("건물명/주소를 입력하세요... (예: 라페스타 B동, 파주 야당역 CGV타워)")
     
-    # 프롬프트 구성
     user_prompt = None
     if quick_rejection_prompt:
         user_prompt = quick_rejection_prompt
@@ -636,7 +635,6 @@ if "GEMINI_API_KEY" in st.secrets:
     elif prompt_input:
         user_prompt = prompt_input
 
-    # 🔥 [핵심 해결] 중복 실행 방지 및 프롬프트 처리
     if user_prompt and (len(st.session_state.messages) == 0 or st.session_state.messages[-1]["content"] != user_prompt):
         st.chat_message("user").markdown(user_prompt)
         st.session_state.messages.append({"role": "user", "content": user_prompt})
@@ -720,71 +718,99 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 카톡 요약문 (300자 제한) & 견적 카드 생성
+    # 📱 [고도화] 카톡 요약 제안서 & 1장 제품 상세 제안서 생성
     # ==========================================
     st.write("---")
-    if len(st.session_state.messages) > 0:
-        if st.button("📱 **간결한 카톡 제안서 & 카드 이미지 생성**", use_container_width=True):
-            with st.spinner("300자 이내 카톡 메시지 및 초고해상도 카드 제작 중..."):
-                try:
-                    recent_chat = st.session_state.messages[-1]["content"]
-                    
-                    summary_prompt = (
-                        f"다음 견적 상담 내용을 바탕으로 고객에게 카카오톡으로 전달할 친절하고 정중한 요약 메시지를 작성해 주세요.\n"
+    st.subheader("📋 제안서 및 카톡 요약 문서 생성 센터")
+    
+    proposal_tab1, proposal_tab2 = st.tabs(["📱 카톡 1페이지 요약 제안서", "📄 특정 제품 1장 상세 제안서"])
+    
+    with proposal_tab1:
+        st.caption("고객에게 카카오톡으로 전송할 수 있는 깔끔하고 격식 있는 1페이지 요약 제안서를 생성합니다.")
+        with st.form("kakao_proposal_form"):
+            c1, c2 = st.columns(2)
+            with c1:
+                p_store = st.text_input("상호명 / 고객명", placeholder="예: 운정 파스타 전문점")
+                p_ind = st.text_input("업종", placeholder="예: 일반음식점 (요식업)")
+            with c2:
+                p_loc = st.text_input("지역 / 상권", placeholder="예: 파주 운정신도시 상권")
+            
+            p_risk = st.text_area("업종별 핵심 리스크", placeholder="예: 주방 하수구 유래 보행해충 유입 및 홀 공기질 관리 필요")
+            p_sol = st.text_area("추천 맞춤형 솔루션", placeholder="1️⃣ 블루스캔 / 멤버십 방제 서비스\n2️⃣ 세스코 에어제닉 (공기향기케어)")
+            p_ben = st.text_input("특별 혜택 사항", placeholder="초기 비용 할인 및 3일 무상 체험 서비스 적용")
+            
+            submitted_kakao = st.form_submit_button("✨ 고급형 카톡 제안서 생성하기", use_container_width=True)
+            
+        if submitted_kakao:
+            if not p_store or not p_sol:
+                st.warning("상호명과 추천 솔루션은 필수 입력 항목입니다.")
+            else:
+                kakao_formatted_text = f"""━━━━━━━━━━━━━━━━━━━━
+🌿 [세스코(CESCO) 프리미엄 위생·환경 솔루션 제안서]
+━━━━━━━━━━━━━━━━━━━━
+
+안녕하세요! 
+'{p_store}' 대표님, 사업장에 가장 최적화된 맞춤형 위생 환경 솔루션을 제안드립니다. 🔬✨
+
+━━━━━━━━━━━━━━━━━━━━
+📍 1. 상권 및 사업장 진단 요약
+━━━━━━━━━━━━━━━━━━━━
+• 위치 및 상권 특성: {p_loc}
+• 업종({p_ind}) 핵심 리스크: {p_risk}
+• 진단 결과: 즉각적인 해충 방제 및 프리미엄 공기 케어 통합 솔루션 필요
+
+━━━━━━━━━━━━━━━━━━━━
+🛡️ 2. 추천 맞춤형 솔루션
+━━━━━━━━━━━━━━━━━━━━
+{p_sol}
+
+━━━━━━━━━━━━━━━━━━━━
+🎁 3. 특별 혜택 및 진행 안내
+━━━━━━━━━━━━━━━━━━━━
+• {p_ben}
+• 설치 일정 및 피드백: 담당 플래너와 협의 후 확정
+
+━━━━━━━━━━━━━━━━━━━━
+💡 "깨끗하고 안전한 공간은 고객의 발걸음을 머물게 합니다."
+지금 바로 세스코 프리미엄 케어를 경험해보세요!
+━━━━━━━━━━━━━━━━━━━━"""
+                st.success("✅ 고품격 카카오톡 1페이지 제안서가 완성되었습니다!")
+                st.code(kakao_formatted_text, language="markdown")
+                st.info("💡 우측 상단의 **Copy 버튼**을 눌러 카카오톡 채팅창에 그대로 붙여넣기 하세요.")
+
+    with proposal_tab2:
+        st.caption("특정 세스코 제품(예: 판테온, 센스미, 에어제닉 등)에 대해 고객 설득용으로 곧바로 출력할 수 있는 **1장 상세 제안서**를 생성합니다.")
+        with st.form("product_onepager_form"):
+            prod_name = st.text_input("제안할 세스코 제품명", placeholder="예: 세스코 공기살균기 센스미 / 에어제닉")
+            prod_target = st.text_input("타겟 고객 업종", placeholder="예: 병원 대기실, 뷰티숍, 고급 음식점")
+            prod_benefit = st.text_area("강조할 핵심 포인트 (스펙 및 장점)", placeholder="예: UV-C 파워 램프로 부유 바이러스 99.9% 살균, 슬림하고 세련된 디자인")
+            
+            submitted_prod = st.form_submit_button("📄 제품 1장 상세 제안서 생성하기", use_container_width=True)
+            
+        if submitted_prod:
+            if not prod_name or not prod_target:
+                st.warning("제품명과 타겟 업종은 필수 입력 항목입니다.")
+            else:
+                with st.spinner("전문 영업 비서가 고품격 1장 제품 제안서를 작성 중입니다..."):
+                    prod_prompt = (
+                        f"세스코 영업사원이 고객({prod_target})에게 제시할 수 있는 **'단 1장으로 끝내는 제품 상세 제안서'**를 작성해 주세요.\n"
                         f"[작성 조건]\n"
-                        f"1. 전체 글자 수는 공백 포함 **최대 300자 이내**로 매우 간결하게 작성할 것.\n"
-                        f"2. 인사말은 1줄로 최소화하고 [매장명/추천서비스/월단가/주요혜택(3일 무상체험 포함)]만 불렛포인트로 명확히 적을 것.\n"
-                        f"3. 한눈에 읽기 쉬운 카톡 전송용으로 만들 것.\n"
-                        f"4. AI가 스스로 3번 점검한 정확한 제품명과 가격이어야 함.\n\n"
-                        f"견적 내용:\n{recent_chat}"
+                        f"1. 제안 제품명: {prod_name}\n"
+                        f"2. 타겟 업종: {prod_target}\n"
+                        f"3. 강조 포인트: {prod_benefit}\n"
+                        f"4. 구성 양식: \n"
+                        f"   - 📌 [제안 개요 및 도입 배경]\n"
+                        f"   - 🛡️ [핵심 기술 스펙 & 차별점]\n"
+                        f"   - 💼 [해당 업종 도입 시 기대 효과 (ROI)]\n"
+                        f"   - 🎁 [3일 무상 체험 및 도입 안내]\n"
+                        f"5. 어조: 정중하고 격식 있는 전문 영업 비서의 존댓말 톤으로 작성할 것."
                     )
-                    chat = client.chats.create(model="gemini-3-flash-preview")
-                    text_res = chat.send_message(summary_prompt)
+                    chat_prod = client.chats.create(model="gemini-3-flash-preview")
+                    prod_res = chat_prod.send_message(prod_prompt)
                     
-                    st.subheader("📱 **1. 카톡/문자 전송용 간결 메시지 (복사용)**")
-                    st.code(text_res.text, language="text")
-                    
-                    json_prompt = (
-                        f"다음 견적 내용에서 핵심 서비스와 요금 정보를 추출하여 오직 JSON 형식으로만 응답해 주세요.\n"
-                        f"JSON 구조 예시:\n"
-                        f"{{\n"
-                        f'  "title": "15평 매장 맞춤 위생 솔루션 견적",\n'
-                        f'  "subtitle": "3일 무상 체험 + 방제 결합 할인가",\n'
-                        f'  "items": [\n'
-                        f'    {{"name": "에어제닉/에어퍼퓸", "price": "3일 무료체험", "note": "설치비 면제 혜택"}},\n'
-                        f'    {{"name": "바이러스케어", "price": "30,000원/월", "note": "방제 결합 할인가"}}\n'
-                        f'  ],\n'
-                        f'  "promotion": "3일 체험 후 피드백 만족 시 추가 할인"\n'
-                        f"}}\n\n"
-                        f"견적 내용:\n{recent_chat}"
-                    )
-                    json_res = chat.send_message(json_prompt)
-                    
-                    json_match = re.search(r'\{.*\}', json_res.text, re.DOTALL)
-                    if json_match:
-                        card_data = json.loads(json_match.group())
-                    else:
-                        card_data = {
-                            "title": "세스코 맞춤 솔루션 견적",
-                            "subtitle": "3일 무료 체험 프로모션 적용",
-                            "items": [{"name": "맞춤 위생 서비스", "price": "3일 무상체험", "note": "상세 문의"}],
-                            "promotion": "3일 체험 후 만족 시 결합 할인 적용"
-                        }
-                    
-                    st.subheader("🖼️ **2. 카톡 전송용 완성형 그래픽 견적 카드**")
-                    card_img_bytes = create_high_res_quote_card(card_data)
-                    
-                    st.image(card_img_bytes, caption="모바일 전용 초고해상도 견적 카드 (1200x1600)", use_container_width=True)
-                    
-                    st.download_button(
-                        label="📥 **고해상도 견적 카드 다운로드 (.png)**",
-                        data=card_img_bytes,
-                        file_name="CES코_고해상도_견적카드.png",
-                        mime="image/png",
-                        use_container_width=True
-                    )
-                except Exception as img_err:
-                    st.error(f"⚠️ 카드 이미지 생성 중 오류가 발생했습니다: {img_err}")
+                    st.success("✅ 제품 상세 제안서가 완성되었습니다!")
+                    st.markdown(prod_res.text)
+                    st.code(prod_res.text, language="markdown")
 
     # ==========================================
     # 📝 현장 영업일지 기록 (3일 체험 스케줄 자동 연동)
