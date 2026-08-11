@@ -155,7 +155,7 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. [원복 완료] 이전 버전의 깔끔한 제안서 이미지 카드 생성 엔진
+# 3. 신뢰감 있는 3단계 제안서 이미지 카드 생성 엔진 (Pillow)
 # ==========================================
 FONT_PATH = "NanumGothic-Bold.ttf"
 
