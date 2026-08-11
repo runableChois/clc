@@ -7,6 +7,7 @@ import urllib.request
 from datetime import datetime, timedelta
 
 from openai import OpenAI
+from PIL import Image, ImageDraw, ImageFont
 from google import genai
 from google.genai import types
 import pandas as pd
@@ -184,7 +185,6 @@ def generate_dalle3_marketing_card(store_name, industry, solution_text):
         )
         image_url = response.data[0].url
         
-        # 이미지 다운로드 바이트 추출
         with urllib.request.urlopen(image_url) as resp:
             return resp.read(), None
     except Exception as e:
@@ -673,7 +673,7 @@ if "GEMINI_API_KEY" in st.secrets:
     # 📱 AI 자동 완성형 카톡 제안서 & DALL-E 3 디자인 마케팅 이미지 생성 센터
     # ==========================================
     st.write("---")
-    st.subheader("📋 AI 맞춤형 제안서 및 디자인 마케팅 카드 생성 센터")
+    st.subheader("📋 AI 맞춤형 제안서 및 DALL-E 3 디자인 마케팅 카드 생성 센터")
     st.caption("상호명과 업종만 입력하시면, 제미나이 AI가 텍스트 제안서를 작성하고, **OpenAI DALL-E 3가 고품격 디자인 마케팅 이미지 카드(.png)**를 실시간으로 생성합니다.")
     
     proposal_tab1, proposal_tab2 = st.tabs(["📱 카톡 1페이지 요약 제안서", "📄 특정 제품 1장 상세 제안서"])
@@ -754,7 +754,6 @@ if "GEMINI_API_KEY" in st.secrets:
                     st.success("✅ AI 텍스트 제안서가 완성되었습니다! 이어 DALL-E 3 디자인 이미지를 생성 중입니다...")
                     st.code(kakao_formatted_text, language="markdown")
                 
-                # DALL-E 3 이미지 실시간 생성 호출
                 with st.spinner("OpenAI DALL-E 3 인공지능이 전문 디자인 마케팅 이미지를 렌더링 중입니다 (약 10~15초 소요)..."):
                     dalle_bytes, err = generate_dalle3_marketing_card(auto_store, auto_ind, ai_sol)
                     if dalle_bytes:
