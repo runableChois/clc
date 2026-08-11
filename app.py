@@ -20,18 +20,22 @@ st.set_page_config(
     layout="wide"
 )
 
-# Streamlit Cloud 배지/툴바 지우기 스크립트
+# 💡 [핵심] 왕관/배지 아이콘만 정밀 삭제하고 사이드바 메뉴 버튼은 보존하는 스크립트
 components.html("""
 <script>
-    function removeStreamlitBadges() {
+    function removeStreamlitBadgesOnly() {
         try {
             const parentDoc = window.parent.document;
             const selectors = [
-                'footer', 'header', '#MainMenu',
-                '[data-testid="stHeader"]', '[data-testid="stToolbar"]',
-                '[data-testid="stStatusWidget"]', '[data-testid="stDecoration"]',
-                '[class*="viewerBadge"]', '[class*="stAppDeployButton"]',
-                'div[class*="styles_viewerBadge"]', 'div[class*="ViewerBadge"]'
+                'footer',
+                '#MainMenu',
+                '[data-testid="stStatusWidget"]',
+                '[data-testid="stDecoration"]',
+                '[class*="viewerBadge"]',
+                '[class*="stAppDeployButton"]',
+                'div[class*="styles_viewerBadge"]',
+                'div[class*="ViewerBadge"]',
+                'button[title="View app in Streamlit Community Cloud"]'
             ];
             selectors.forEach(selector => {
                 const elements = parentDoc.querySelectorAll(selector);
@@ -42,20 +46,45 @@ components.html("""
             });
         } catch (e) { console.log(e); }
     }
-    setInterval(removeStreamlitBadges, 300);
+    setInterval(removeStreamlitBadgesOnly, 300);
 </script>
 """, height=0, width=0)
 
 st.markdown("""
 <style>
-    #MainMenu {visibility: hidden !important; display: none !important;}
-    header {visibility: hidden !important; display: none !important;}
-    footer {visibility: hidden !important; display: none !important;}
-    div[data-testid="stHeader"] {display: none !important;}
-    div[data-testid="stToolbar"] {display: none !important;}
+    /* 1. 불필요한 푸터 및 배지 숨기기 */
+    footer {display: none !important; visibility: hidden !important;}
+    #MainMenu {display: none !important;}
+    .stAppDeployButton {display: none !important;}
+    div[data-testid="stDecoration"] {display: none !important;}
+    div[data-testid="stStatusWidget"] {display: none !important;}
+    div[class*="viewerBadge"] {display: none !important;}
     
+    /* 2. 상단 헤더 투명화 & 좌측 상단 사이드바 열기 버튼 시각화 */
+    div[data-testid="stHeader"] {
+        background-color: transparent !important;
+        z-index: 100 !important;
+    }
+    
+    /* 💡 [핵심] 좌측 상단 사이드바 열기/닫기 버튼 파란색 강조 및 터치 최적화 */
+    [data-testid="collapsedControl"], [data-testid="stSidebarCollapseButton"] {
+        display: flex !important;
+        visibility: visible !important;
+        color: #ffffff !important;
+        background-color: #003b7a !important;
+        border-radius: 8px !important;
+        padding: 4px !important;
+        margin-top: 5px !important;
+        margin-left: 5px !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
+    }
+    [data-testid="collapsedControl"] button, [data-testid="stSidebarCollapseButton"] button {
+        color: #ffffff !important;
+    }
+
+    /* 3. 메인 여백 모바일 최적화 */
     .main .block-container {
-        padding-top: 1rem !important;
+        padding-top: 2.5rem !important;
         padding-bottom: 2rem !important;
     }
     
@@ -169,7 +198,7 @@ def create_high_res_quote_card(card_data):
     return buf.getvalue()
 
 # ==========================================
-# 3. 데이터 I/O 함수 (영업일지 & 체험장비 대장)
+# 3. 데이터 I/O 함수
 # ==========================================
 DATA_FILE_PATH = "saved_data_context.txt"
 NAME_FILE_PATH = "saved_data_name.txt"
@@ -203,7 +232,7 @@ def save_sales_log(member_name, client_name, proposed_deal, equipment_status, re
         "담당팀원": member_name,
         "고객/매장명": client_name,
         "제안서비스/견적가": proposed_deal,
-        "체험장비설치": equipment_status, # "설치 완료" or "미설치"
+        "체험장비설치": equipment_status,
         "고객반응/상태": reaction,
         "영업메모": memo
     }])
@@ -217,7 +246,6 @@ def save_sales_log(member_name, client_name, proposed_deal, equipment_status, re
 def load_equipment_inventory():
     if os.path.exists(EQUIPMENT_LOG_PATH):
         return pd.read_csv(EQUIPMENT_LOG_PATH)
-    # 기본 샘플 데이터 제공
     default_df = pd.DataFrame([
         {"담당팀원": "홍길동", "보유대수": 5},
         {"담당팀원": "김철수", "보유대수": 3},
@@ -292,10 +320,8 @@ with st.sidebar:
     if input_pwd == admin_password_secret:
         st.success("🔓 관리자 권한 활성화됨")
         
-        # 관리자 서브탭 (1. 대시보드 / 2. 장비보유관리 / 3. 단가표관리)
         admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📊 영업 대시보드", "📦 체험장비 보유 관리", "📁 단가표 관리"])
         
-        # 📊 [대시보드 탭]
         with admin_tab1:
             st.write("📈 **실시간 영업 성과 & 체험장비 대시보드**")
             
@@ -303,7 +329,6 @@ with st.sidebar:
                 logs_df = pd.read_csv(SALES_LOG_PATH)
                 inv_df = load_equipment_inventory()
                 
-                # 1. 체험장비 설치 현황 집계
                 installed_counts = logs_df[logs_df["체험장비설치"] == "설치 완료"]["담당팀원"].value_counts().reset_index()
                 installed_counts.columns = ["담당팀원", "설치대수"]
                 
@@ -314,14 +339,12 @@ with st.sidebar:
                 st.subheader("1️⃣ 팀원별 체험장비 보유 및 설치 활동량")
                 st.dataframe(merged_inv, use_container_width=True)
                 
-                # 시각화 차트
                 chart_data = merged_inv.set_index("담당팀원")[["보유대수", "설치대수"]]
                 st.bar_chart(chart_data)
                 
                 st.divider()
                 st.subheader("2️⃣ 체험장비 설치 후 계약 성사율 분석")
                 
-                # 설치 유무별 계약 성사율 비교
                 installed_group = logs_df[logs_df["체험장비설치"] == "설치 완료"]
                 non_installed_group = logs_df[logs_df["체험장비설치"] != "설치 완료"]
                 
@@ -359,7 +382,6 @@ with st.sidebar:
             else:
                 st.info("영업일지 데이터가 쌓이면 실시간 분석 대시보드가 표시됩니다.")
 
-        # 📦 [체험장비 보유 관리 탭]
         with admin_tab2:
             st.write("📦 **팀원별 체험장비 보유 대수 설정**")
             current_inv = load_equipment_inventory()
@@ -370,7 +392,6 @@ with st.sidebar:
                 st.toast("✅ 팀원별 체험장비 보유 대수가 업데이트되었습니다!", icon="🎉")
                 st.rerun()
 
-        # 📁 [단가표 관리 탭]
         with admin_tab3:
             new_file = st.file_uploader("새 단가표 (시트 1 작성 엑셀/PDF)", type=["xlsx", "csv", "pdf"])
             if new_file and st.button("💾 마스터 데이터로 반영", use_container_width=True):
@@ -553,7 +574,7 @@ if "GEMINI_API_KEY" in st.secrets:
                     st.error(f"⚠️ 생성 중 오류 발생: {img_err}")
 
     # ==========================================
-    # 📝 현장 영업일지 기록 (체험장비 설치 선택 추가)
+    # 📝 현장 영업일지 기록
     # ==========================================
     with st.expander("📝 **팀원 현장 영업 미팅 일지 기록하기**"):
         st.caption("오늘 방문한 매장/고객과의 상담 내역을 기록하면 팀 전체 영업 대장에 저장됩니다.")
@@ -574,6 +595,6 @@ if "GEMINI_API_KEY" in st.secrets:
                     save_sales_log(m_name, c_name, p_deal, eq_status, reaction, memo)
                     st.success("🎉 영업일지가 성공적으로 저장되었습니다!")
                 else:
-                    st.warning("⚠️ 필수 항목(팀원 이름, 고객명)을 입력해 주세요.")
+                    st.warning("⚠️ 필수 항목을 입력해 주세요.")
 else:
     st.error("⚠️ Streamlit Cloud Secrets에 GEMINI_API_KEY가 설정되지 않았습니다.")
