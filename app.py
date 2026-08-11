@@ -99,9 +99,11 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 세스코 핵심 8대 제품 데이터 베이스 정의
+# 2. 통합 마스터 시스템 지침 & 제품 지식 베이스
 # ==========================================
-CESCO_PRODUCT_LINEUP_PROMPT = """
+CESCO_MASTER_SYSTEM_INSTRUCTION = """
+당신은 세스코(CESCO) 경기서북부(고양, 파주, 김포, 인천 검단) 영업 플래너를 전담 지원하는 '올인원 현장 영업 지원 마스터 AI'입니다.
+
 [세스코 핵심 8대 제품 라인업 지식 기반]
 1. 공기청정기: '판테온' (360도 필터, CA인증, CO2/PM1.0 센서, 초미세먼지 및 냄새 탈취)
 2. 공기살균기: '센스미' (UV-C 파워 램프, S형 유로 설계, 부유 바이러스·세균 99.9% 제거, 슬림 디자인)
@@ -111,6 +113,25 @@ CESCO_PRODUCT_LINEUP_PROMPT = """
 6. 향기 제품: '에어퍼퓸200', '에어제닉' (공간 맞춤형 자동 향기 분사 및 악취 분해)
 7. 화장실 케어 제품: '프레쉬제닉' (변기 세정·탈취), '핸드제닉' (비접촉 손세정기), '새니제닉' (비접촉 손소독기)
 8. 날벌레 방지 제품: '에어커튼' (출입구 바람 차단), '포충등' (실내 자외선 포충/유인)
+
+[플래너 질문 유형별 응답 작성 규칙]
+
+1. 📍 특정 상권 / 지역 / 건물 / 장비 방문 영업 문의 시:
+   - 아래 6단계 프레임워크에 따라 상세 지침서 작성:
+     ① 🎯 보유 장비/제품 맞춤 타겟 업종 매칭 (3일 무료 체험 기준)
+     ② ⏰ 업종별 사장님 상주 '골든타임' 시간대
+     ③ 📍 건물별 입점 업종 분포, 정확한 도로명 주소 및 네이버 지도 URL 필수 작성
+        (URL 형식: [📍 네이버 지도로 위치 보기](https://map.naver.com/v5/search/건물명또는주소))
+     ④ 🛡️ '네이버 악성 리뷰 방지 & 매출 보호 ROI' 설득 논리 및 3일 체험 피칭 스크립트
+     ⑤ 💬 3일 차 피드백 요청 및 최종 계약 전환(Closing) 화법
+     ⑥ 📋 방문 구역 통합 요약표 [방문순서 | 건물명/동 | 대표 도로명주소 | 주요 입점 업종 & 골든타임 | 네이버 지도 바로가기]
+
+2. 🔍 견적 / 요금 / 제품 단가 문의 시:
+   - 업로드된 [학습 문서 데이터]가 있다면 최우선 참조.
+   - 3단계 스스로 점검(문서 존재여부 → 단독가/결합가 가격 정확성 → 적합성) 후 표와 불렛포인트로 간결히 답변.
+
+3. 🛡️ 거절 대응 문의 시:
+   - 거절 반응을 뒤집는 1초 반박 스크립트와 세스코 차별점을 핵심만 명확히 답변.
 """
 
 # ==========================================
@@ -293,7 +314,6 @@ def save_sales_log(planner_name, client_name, proposed_deal, equipment_status, e
         old_df = pd.read_csv(SALES_LOG_PATH)
         if "담당팀원" in old_df.columns:
             old_df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
-        # 필수 열 보장
         for col in ["설치일자", "3일체험_피드백예정일"]:
             if col not in old_df.columns:
                 old_df[col] = "-"
@@ -324,57 +344,12 @@ def save_equipment_inventory(df):
     df.to_csv(EQUIPMENT_LOG_PATH, index=False, encoding="utf-8-sig")
 
 # ==========================================
-# 5. 사이드바 UI 및 고도화 시스템 프롬프트
+# 5. 사이드바 UI (모드 선택 드롭다운 삭제로 깔끔화)
 # ==========================================
 with st.sidebar:
-    st.header("⚙️ 영업 모드 설정")
-    
-    role_option = st.selectbox(
-        "AI 영업 파트너 모드:",
-        [
-            "경기서북부 상권 분석 & 영업지 추천 (BI Pro)",
-            "견적 & 요금 비교 전문가 (학습 문서 기반 Pro)",
-            "거절 대응 & 셀링포인트 안내",
-            "자유 질문 모드"
-        ]
-    )
-    
-    if role_option == "경기서북부 상권 분석 & 영업지 추천 (BI Pro)":
-        base_instruction = (
-            "당신은 경기도 고양시, 파주시, 김포시, 인천 검단구 지역 전문 세스코 영업 상권 컨설턴트이자 최고 영업 멘토입니다.\n"
-            f"{CESCO_PRODUCT_LINEUP_PROMPT}\n"
-            "플래너가 특정 상권이나 보유 체험장비/제품을 언급하면, 아래 6단계 실전 영업 지침서 형태로 매우 상세하고 구체적으로 답변하세요.\n\n"
-            "[답변 작성 필수 6단계 프레임워크]\n"
-            "1. 🎯 보유 장비/제품 맞춤 타겟 업종 매칭: 8대 제품 라인업 중 기능적 특성에 딱 맞는 최적 타겟 업종을 제시하세요. (모든 체험장비는 '3일 무료 체험' 기준)\n"
-            "2. ⏰ 업종별 사장님 상주 '골든타임' 시간대: 사장님을 직접 만나서 대화할 확률이 가장 높은 시간대를 명시하세요.\n"
-            "3. 📍 건물별 입점 업종 분포, 정확한 주소 및 네이버 지도 길찾기:\n"
-            "   - 추천 건물/동의 입점 업종 구성을 상세히 설명하고 도로명 주소를 명시하세요.\n"
-            "   - 모바일 네이버 지도 URL 형식: [📍 네이버 지도로 위치 보기](https://map.naver.com/v5/search/건물명또는주소)\n"
-            "4. 🛡️ '네이버 리뷰 & 매출 방지 ROI' 설득 논리 및 3일 체험 피칭 스크립트:\n"
-            "   - '네이버 악성 리뷰 방지 및 매장 평점 상승 = 매출 보호' 논리로 사장님을 설득하는 멘트를 작성하세요.\n"
-            "5. 💬 3일 차 피드백 요청 & 최종 계약 전환(Closing) 화법:\n"
-            "   - 3일 무상 체험 종료 시점 효과 피드백 요청 및 유료 계약 전환방문/콜 스크립트를 작성하세요.\n"
-            "6. 📋 방문 구역 통합 요약표: [방문순서 | 건물명/동 | 대표 도로명주소 | 주요 입점 업종 & 골든타임 | 네이버 지도 바로가기] 표로 정리하세요."
-        )
-    elif role_option == "견적 & 요금 비교 전문가 (학습 문서 기반 Pro)":
-        base_instruction = (
-            "당신은 영업 플래너를 보조하는 세스코 초정밀 견적 및 제품 안내 전문 컨설턴트입니다.\n"
-            f"{CESCO_PRODUCT_LINEUP_PROMPT}\n"
-            "[작성 논리 및 점검 수칙 (필수)]\n"
-            "1. 고객의 질문이나 첨부된 사진(해충 식별 포함)을 분석하세요.\n"
-            "2. 하단에 제공된 [업로드된 학습 문서 데이터] 안에서만 답변을 찾으세요. 절대로 없는 내용을 지어내지 마세요.\n"
-            "3. 답변 출력 전 3단계 스스로 점검(1단계: 문서 존재여부 / 2단계: 단독가/결합가 가격 정확성 / 3단계: 업종/평수 적합성)을 완료하세요.\n"
-            "4. 인사말은 생략하고, 표와 불렛포인트로 간결하게 답변하세요.\n"
-            "5. 답변 본문에는 이미지를 첨부하지 마세요."
-        )
-    elif role_option == "거절 대응 & 셀링포인트 안내":
-        base_instruction = (
-            "당신은 베테랑 영업 멘토입니다.\n"
-            f"{CESCO_PRODUCT_LINEUP_PROMPT}\n"
-            "플래너가 고객의 거절 반응을 입력하면, 이를 뒤집을 수 있는 강력한 반박 논리와 세스코만의 차별점을 3줄 이내로 핵심만 알려주세요."
-        )
-    else:
-        base_instruction = f"당신은 유능하고 친절한 AI 영업 보조입니다.\n{CESCO_PRODUCT_LINEUP_PROMPT}\n답변은 간결하게 작성하세요."
+    st.header("⚙️ 세스코 영업지원 센터")
+    st.success("🤖 **올인원 스마트 AI 가동 중**")
+    st.caption("질문, 사진, 상권, 거절 대응 등 무엇이든 입력하면 AI가 의도를 자동 인식합니다.")
 
     st.divider()
     st.subheader("📚 현재 AI 학습 문서 상태")
@@ -382,7 +357,7 @@ with st.sidebar:
         st.success(f"**누적 학습 완료 ({len(learned_files_list)}건):**")
         st.text_area("파일 목록 (RAG 최우선 참조)", value="\n".join(learned_files_list), height=100)
     else:
-        st.info("현재 학습된 제품/단가표 문서가 없습니다.")
+        st.info("현재 학습된 단가표 문서가 없습니다.")
 
     st.divider()
     st.subheader("🔑 관리자 패널")
@@ -415,7 +390,6 @@ with st.sidebar:
                 st.subheader("1️⃣ 플래너별 체험장비 보유 및 설치 현황")
                 st.dataframe(merged_inv[["담당플래너", "전체 보유대수", "설치대수", "현재 수중 보유대수", "설치활동률(%)"]], use_container_width=True)
                 
-                # 3일 체험 피드백 요청 대시보드
                 st.divider()
                 st.subheader("⏰ 2️⃣ [3일 체험 완료] 피드백 요청 & 계약 클로징 대상 매장")
                 if "3일체험_피드백예정일" in logs_df.columns:
@@ -536,9 +510,9 @@ with st.sidebar:
 st.title("💼 우리 팀 세스코 영업지원 AI (Pro)")
 
 if learned_files_list:
-    st.caption(f"📌 **참조 학습 문서:** `{len(learned_files_list)}건 통합` | 경기서북부 맞춤 AI")
+    st.caption(f"📌 **참조 학습 문서:** `{len(learned_files_list)}건 통합` | 경기서북부 올인원 AI")
 else:
-    st.caption("📌 **경기서북부(고양/파주/김포/검단) 영업 특화 모드**")
+    st.caption("📌 **경기서북부(고양/파주/김포/검단) 올인원 스마트 영업 AI**")
 
 st.divider()
 
@@ -580,41 +554,29 @@ if "GEMINI_API_KEY" in st.secrets:
     selected_faq = None
     st.write("💡 **경기 서북부 주요 거점 퀵 분석 (버튼 터치):**")
     
-    if role_option == "경기서북부 상권 분석 & 영업지 추천 (BI Pro)":
-        col1, col2, col3, col4 = st.columns(4)
-        with col1:
-            if st.button("📌 파주 야당역/운정 상권", use_container_width=True):
-                selected_faq = "파주 야당역 음식점/유흥 상권 및 운정 신도시 상가의 특징, 포진 업종, 3일 체험 타겟 세스코 상품 및 골든타임 동선과 네이버 지도 주소를 알려줘."
-        with col2:
-            if st.button("📌 김포 구래동/운양동 상권", use_container_width=True):
-                selected_faq = "김포 구래동 24시 외식 상권과 운양동 카페/병원 상권의 특성, 입점 건물 주소(네이버 지도), 3일 체험 제안 전략을 분석해줘."
-        with col3:
-            if st.button("📌 검단신도시 아라동 상권", use_container_width=True):
-                selected_faq = "인천 검단신도시(아라동) 신규 입주 상가 건물들의 업종 특징, 네이버 지도 주소, 3일 체험 타겟 및 골든타임 피칭 전략을 알려줘."
-        with col4:
-            if st.button("📌 고양 라페스타/삼송 상권", use_container_width=True):
-                selected_faq = "고양 라페스타 구상권과 삼송/덕은 신규 오피스 상권의 주요 건물별 입점 업종, 네이버 지도 주소, 에어퍼퓸/에어제닉 3일 체험 침투 전략을 분석해줘."
-    else:
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if st.button("🔍 15평 매장 단독/결합가 비교", use_container_width=True):
-                selected_faq = "15평 매장 기준 단독가, 결합가, 프로모션가를 핵심만 간결하게 표로 비교해줘. (3-Step 스스로 점검할 것)"
-        with col2:
-            if st.button("🛡️ 타사 대비 핵심 강점 보기", use_container_width=True):
-                selected_faq = "타사 대비 세스코 핵심 차별점 3가지를 짧고 강력하게 정리해줘."
-        with col3:
-            if st.button("🎁 이번 달 프로모션 혜택", use_container_width=True):
-                selected_faq = "이번 달 프로모션 할인 혜택과 주요 단가를 간결하게 보여줘."
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        if st.button("📌 파주 야당역/운정 상권", use_container_width=True):
+            selected_faq = "파주 야당역 음식점/유흥 상권 및 운정 신도시 상가의 특징, 포진 업종, 3일 체험 타겟 세스코 상품 및 골든타임 동선과 네이버 지도 주소를 알려줘."
+    with col2:
+        if st.button("📌 김포 구래동/운양동 상권", use_container_width=True):
+            selected_faq = "김포 구래동 24시 외식 상권과 운양동 카페/병원 상권의 특성, 입점 건물 주소(네이버 지도), 3일 체험 제안 전략을 분석해줘."
+    with col3:
+        if st.button("📌 검단신도시 아라동 상권", use_container_width=True):
+            selected_faq = "인천 검단신도시(아라동) 신규 입주 상가 건물들의 업종 특징, 네이버 지도 주소, 3일 체험 타겟 및 골든타임 피칭 전략을 알려줘."
+    with col4:
+        if st.button("📌 고양 라페스타/삼송 상권", use_container_width=True):
+            selected_faq = "고양 라페스타 구상권과 삼송/덕은 신규 오피스 상권의 주요 건물별 입점 업종, 네이버 지도 주소, 에어퍼퓸/에어제닉 3일 체험 침투 전략을 분석해줘."
 
     st.write("---")
     
-    # 🔥 [고도화] 현장 사진 멀티모달 진단 + 1페이지 브리핑 리포트
+    # 현장 사진 멀티모달 진단 + 1페이지 브리핑 리포트
     with st.expander("📸 **현장 사진 AI 진단 & 1페이지 영업 브리핑 리포트 생성**"):
         uploaded_img = st.file_uploader("현장 사진(매장, 주방, 화장실, 외관 등)을 첨부하면 AI가 시각 요소를 분석하여 8대 제품 중 맞춤 제안 리포트를 생성합니다.", type=["jpg", "jpeg", "png"])
         if uploaded_img:
             st.image(uploaded_img, caption="첨부된 현장 사진 진단 준비 완료", width=250)
 
-    prompt_input = st.chat_input("질문을 입력하세요... (예: 사진 진단해 줘, 또는 라페스타 3일 체험 추천해 줘)")
+    prompt_input = st.chat_input("질문을 입력하세요... (예: 라페스타 에어퍼퓸 3일 체험 어디가 좋아? 또는 견적 단가표 알려줘)")
     
     # 거절 반박 퀵카드 -> 퀵 버튼 -> 입력창 순 적용
     if quick_rejection_prompt:
@@ -635,7 +597,7 @@ if "GEMINI_API_KEY" in st.secrets:
             role = "user" if msg["role"] == "user" else "model"
             history.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-        # 시스템 지침 분기 처리
+        # 시스템 지침 분기 처리 (통합 마스터 엔진 적용)
         if quick_rejection_prompt:
             final_system_instruction = (
                 "당신은 베테랑 세스코 영업 멘토입니다.\n"
@@ -643,34 +605,26 @@ if "GEMINI_API_KEY" in st.secrets:
                 "오직 요청된 거절 상황에 대한 1초 즉시 반박 킬러 스크립트(플래너 대화 화법)와 핵심 영업 팁만 불렛포인트로 3~4줄 이내로 매우 빠르고 간결하게 출력하세요."
             )
         elif uploaded_img:
-            # 🔥 사진 첨부 시 1페이지 현장 영업 브리핑 리포트 전용 시스템 지침
             final_system_instruction = (
                 "당신은 세스코 영업사원을 위한 '현장 영업 지원 전담 AI 도우미(Field Sales Intelligence AI)'입니다.\n"
-                f"{CESCO_PRODUCT_LINEUP_PROMPT}\n"
-                "영업사원이 업로드한 현장 사진(매장, 주방, 화장실, 건물 외관 등)의 시각적 요소와 상황을 정밀 분석하여 "
-                "반드시 아래 [AI 브리핑 리포트 출력 표준 규격] 4가지 항목으로 정리하여 답변해 주세요.\n\n"
+                "영업사원이 업로드한 현장 사진의 시각적 요소와 상황을 정밀 분석하여 반드시 아래 [AI 브리핑 리포트 출력 표준 규격] 4가지 항목으로 정리하여 답변해 주세요.\n\n"
                 "[AI 브리핑 리포트 출력 표준 규격]\n"
                 "1. [현장 진단 & 위험 요소 분석]\n"
                 "   - 공간 유형, 규모 추정, 위생/환경 위험 요소(공기 오염, 악취, 날벌레 유입, 화장실 습기/위생 등) 진단\n\n"
                 "2. [추천 제품 & 핵심 스펙]\n"
                 "   - 세스코 8대 제품 라인업 중 현장에 가장 적합한 제품 2~4개 선정 및 설치 위치, 핵심 스펙 요약\n\n"
                 "3. [현장 맞춤 설득 스크립트 (영업사원용)]\n"
-                "   - 해당 업주(식당 사장, 병원 원장, 뷰티숍 사장 등) 맞춤 실전 오프닝 및 3일 무료 체험 권유 멘트\n\n"
+                "   - 해당 업주 맞춤 실전 오프닝 및 3일 무료 체험 권유 멘트\n\n"
                 "4. [추천 패키지 & 견적 포인트]\n"
                 "   - 제품 결합 패키지 추천 및 가치 제안(네이버 악성 리뷰 방지, 매장 브랜드 이미지 제고, ROI 등)"
             )
         else:
-            final_system_instruction = base_instruction
-            if role_option == "견적 & 요금 비교 전문가 (학습 문서 기반 Pro)" and knowledge_context:
+            final_system_instruction = CESCO_MASTER_SYSTEM_INSTRUCTION
+            if knowledge_context:
                 final_system_instruction += (
                     f"\n\n[업로드된 전체 통합 학습 문서 데이터 ({len(learned_files_list)}건 통합본)]\n"
-                    "가장 중요한 정보입니다. 답변 시 반드시 이 내용 안에서만 찾고 3번 점검하세요:\n\n"
+                    "견적이나 제품 단가 문의 시 가장 중요한 참조 문서입니다. 답변 시 반드시 이 내용 안에서만 찾고 3번 점검하세요:\n\n"
                     f"{knowledge_context}"
-                )
-            elif role_option == "경기서북부 상권 분석 & 영업지 추천 (BI Pro)":
-                final_system_instruction += (
-                    "\n\n[경기 서북부 상권 분석 가이드]\n"
-                    "고양, 파주, 김포, 검단 지역 특성에 집중하여 층별 입점 업종, 점주 상주 골든타임, 네이버 지도 URL, 네이버 리뷰 ROI 설득 및 '3일 무상 체험 피드백' 프로세스를 명확히 제안하세요."
                 )
 
         with st.chat_message("assistant"):
@@ -706,7 +660,7 @@ if "GEMINI_API_KEY" in st.secrets:
     # 📱 카톡 요약문 (300자 제한) & 견적 카드 생성
     # ==========================================
     st.write("---")
-    if len(st.session_state.messages) > 0 and role_option != "경기서북부 상권 분석 & 영업지 추천 (BI Pro)":
+    if len(st.session_state.messages) > 0:
         if st.button("📱 **간결한 카톡 제안서 & 카드 이미지 생성**", use_container_width=True):
             with st.spinner("300자 이내 카톡 메시지 및 초고해상도 카드 제작 중..."):
                 try:
