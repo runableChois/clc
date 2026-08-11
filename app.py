@@ -20,7 +20,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 💡 Streamlit Cloud 배지/왕관 아이콘만 핀포인트 제거 스크립트
+# Streamlit Cloud 배지/왕관 아이콘만 핀포인트 제거 스크립트
 components.html("""
 <script>
     function removeStreamlitBadgesOnly() {
@@ -235,7 +235,6 @@ def save_sales_log(member_name, client_name, proposed_deal, equipment_status, eq
     }])
     if os.path.exists(SALES_LOG_PATH):
         old_df = pd.read_csv(SALES_LOG_PATH)
-        # 하위 호환 컬럼 변경
         if "담당팀원" in old_df.columns:
             old_df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
         df = pd.concat([old_df, new_data], ignore_index=True)
@@ -248,11 +247,13 @@ def load_equipment_inventory():
         df = pd.read_csv(EQUIPMENT_LOG_PATH)
         if "담당팀원" in df.columns:
             df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
+        if "보유대수" in df.columns and "전체 보유대수" not in df.columns:
+            df.rename(columns={"보유대수": "전체 보유대수"}, inplace=True)
         return df
     default_df = pd.DataFrame([
-        {"담당플래너": "홍길동", "보유대수": 5},
-        {"담당플래너": "김철수", "보유대수": 3},
-        {"담당플래너": "이영희", "보유대수": 4}
+        {"담당플래너": "홍길동", "전체 보유대수": 5},
+        {"담당플래너": "김철수", "전체 보유대수": 3},
+        {"담당플래너": "이영희", "전체 보유대수": 4}
     ])
     default_df.to_csv(EQUIPMENT_LOG_PATH, index=False, encoding="utf-8-sig")
     return default_df
@@ -343,13 +344,13 @@ with st.sidebar:
                 
                 merged_inv = pd.merge(inv_df, installed_counts, on="담당플래너", how="left").fillna(0)
                 merged_inv["설치대수"] = merged_inv["설치대수"].astype(int)
-                merged_inv["잔여재고"] = merged_inv["보유대수"] - merged_inv["설치대수"]
-                merged_inv["설치활동률(%)"] = (merged_inv["설치대수"] / merged_inv["보유대수"] * 100).round(1)
+                merged_inv["현재 보유대수"] = merged_inv["전체 보유대수"] - merged_inv["설치대수"]
+                merged_inv["설치활동률(%)"] = (merged_inv["설치대수"] / merged_inv["전체 보유대수"] * 100).round(1)
                 
-                st.subheader("1️⃣ 플래너별 체험장비 보유/설치/잔여재고 현황")
-                st.dataframe(merged_inv[["담당플래너", "보유대수", "설치대수", "잔여재고", "설치활동률(%)"]], use_container_width=True)
+                st.subheader("1️⃣ 플래너별 체험장비 보유 및 설치 현황")
+                st.dataframe(merged_inv[["담당플래너", "전체 보유대수", "설치대수", "현재 보유대수", "설치활동률(%)"]], use_container_width=True)
                 
-                chart_data = merged_inv.set_index("담당플래너")[["보유대수", "설치대수", "잔여재고"]]
+                chart_data = merged_inv.set_index("담당플래너")[["전체 보유대수", "설치대수", "현재 보유대수"]]
                 st.bar_chart(chart_data)
                 
                 st.divider()
@@ -416,13 +417,13 @@ with st.sidebar:
                 
             st.divider()
             
-            st.subheader("⚙️ 2. 플래너별 체험장비 보유 대수 수정")
+            st.subheader("⚙️ 2. 플래너별 체험장비 전체 보유대수 수정")
             current_inv = load_equipment_inventory()
             
             edited_df = st.data_editor(current_inv, num_rows="dynamic", use_container_width=True)
-            if st.button("💾 보유 대수 수정사항 저장", use_container_width=True):
+            if st.button("💾 전체 보유대수 수정사항 저장", use_container_width=True):
                 save_equipment_inventory(edited_df)
-                st.toast("✅ 플래너별 체험장비 보유 대수가 업데이트되었습니다!", icon="🎉")
+                st.toast("✅ 플래너별 체험장비 전체 보유대수가 업데이트되었습니다!", icon="🎉")
                 st.rerun()
 
         # 📁 [3. 단가표 관리 탭]
@@ -608,7 +609,7 @@ if "GEMINI_API_KEY" in st.secrets:
                     st.error(f"⚠️ 생성 중 오류 발생: {img_err}")
 
     # ==========================================
-    # 📝 현장 영업일지 기록 (플래너 명칭 적용)
+    # 📝 현장 영업일지 기록
     # ==========================================
     with st.expander("📝 **플래너 현장 영업 미팅 일지 기록하기**"):
         st.caption("오늘 방문한 매장/고객과의 상담 내역을 기록하면 전체 영업 대장에 저장됩니다.")
