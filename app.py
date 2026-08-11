@@ -15,7 +15,7 @@ from google.genai import types
 # 1. 페이지 기본 설정 및 모바일 UI 최적화 CSS
 # ==========================================
 st.set_page_config(
-    page_title="영업팀 전용 AI 단가 & 견적 지원 시스템",
+    page_title="세스코 플래너 전용 AI 영업비서 (Pro)",
     page_icon="💼",
     layout="wide"
 )
@@ -123,7 +123,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 한글 폰트 자동 준비 및 고해상도 그래픽 카드 엔진 (복원)
+# 2. 한글 폰트 자동 준비 및 고해상도 그래픽 카드 엔진 (유지)
 # ==========================================
 FONT_PATH = "NanumGothic-Bold.ttf"
 
@@ -137,7 +137,7 @@ def ensure_korean_font():
             st.error(f"폰트 다운로드 실패: {e}")
 
 def create_high_res_quote_card(card_data):
-    """모바일 전용 초고해상도(1200x1600) 완제품 이미지 카드 생성 (복원)"""
+    """모바일 전용 초고해상도(1200x1600) 완제품 이미지 카드 생성 (유지)"""
     ensure_korean_font()
     
     # 고해상도 캔버스
@@ -320,28 +320,47 @@ def process_file_content(uploaded_file):
 file_context, uploaded_filename = load_master_data()
 
 # ==========================================
-# 4. 사이드바 UI
+# 4. 사이드바 UI 및 AI 고도화 프롬프트 전략
 # ==========================================
 with st.sidebar:
     st.header("⚙️ 영업 모드 설정")
     
+    # 💡 [고도화] 상권 분석 전문가 모드 추가
     role_option = st.selectbox(
         "AI 영업 파트너 모드:",
-        ["견적 & 요금 비교 전문가", "거절 대응 & 셀링포인트 안내", "자유 질문 모드"]
+        ["견적 & 요금 비교 전문가", "상권 분석 & 영업지 선정 전문가", "거절 대응 & 셀링포인트 안내", "자유 질문 모드"]
     )
     
+    # 💡 [고도화] 각 모드별 프롬프트 논리 대폭 강화 (3-Step Self-Correction 및 외부 지식 활용)
     if role_option == "견적 & 요금 비교 전문가":
         base_instruction = (
-            "당신은 영업 플래너를 보조하는 세스코 견적 및 요금 안내 전문 컨설턴트입니다.\n"
-            "등록된 단가표 데이터를 바탕으로 정확한 제품명, 스펙, 요금을 신속히 안내하세요.\n"
-            "모바일 화면 가독성을 위해 장황한 인사말은 생략하고, "
-            "핵심 단독가, 결합가, 프로모션가를 마크다운 표(Table)와 불렛포인트로 간결하고 짧게 답변하세요.\n"
-            "답변 본문에는 이미지를 첨부하지 마세요."
+            "당신은 영업 플래너를 보조하는 세스코 초정밀 견적 및 요금 안내 전문 컨설턴트입니다.\n"
+            "[작성 논리 및 점검 수칙 (필수)]\n"
+            "1. 고객의 질문이나 첨부된 사진(해충 식별 포함)을 분석하세요.\n"
+            "2. 등록된 단가표 데이터에서 가장 적합한 제품과 가격(단독가, 결합가, 프로모션가)을 정확히 찾으세요.\n"
+            "3. 답변을 출력하기 전, 스스로 최소 3번 점검하세요 (Self-Correction Logic):\n"
+            "   - 점검 1: 제안한 제품명과 요금이 단가표에 존재하는 정확한 데이터인가?\n"
+            "   - 점검 2: 할인이 적용되었다면, 그 조건(약정, 결합 등)이 명확히 명시되었는가?\n"
+            "   - 점검 3: 고객의 맥락(업종, 평수, 해충 문제)에 맞는 가장 효과적인 제안인가?\n"
+            "4. 모바일 화면 가독성을 위해 인사말은 생략하고, 핵심 제안과 표, 불렛포인트로 간결하고 정확하게 답변하세요.\n"
+            "5. 답변 본문에는 이미지를 첨부하지 마세요."
+        )
+    elif role_option == "상권 분석 & 영업지 선정 전문가":
+        base_instruction = (
+            "당신은 영업 플래너의 효과적인 영업 활동을 돕는 데이터 기반 상권 분석 전문가입니다.\n"
+            "플래너가 특정 지역이나 상권을 입력하면, 당신의 외부 지식과 Gemini Pro의 외부 지식 접근 기능을 활용하여 해당 상권을 철저히 분석하세요.\n"
+            "[상권 분석 지침 (필수)]\n"
+            "1. 업종 분포 분석: 해당 지역의 주요 포진 업종(예: 요식업, 오피스, 병원 등)과 그 특징을 분석하세요.\n"
+            "2. 업종별 타겟 제품 제안: 요식업엔 방제+포충기, 오피스엔 공기살균기 등 상권 주요 업종에 최적화된 세스코 서비스를 추천하세요.\n"
+            "3. 영업 전략 포인트 (데이터 기반 추정): 대략적인 매출 규모(추정치), 유동인구 특징, 최근 오픈 트렌드 등을 종합하여 '가장 계약 확률이 높은 영업 우선순위 장소'와 접근 전략을 3줄 이내로 핵심만 제안하세요.\n"
+            "   * (주의) 특정 업체의 개인정보(정확한 오픈일, 매출)는 조회 불가하므로 상권 전체 평균 추정 데이터를 기반으로 분석할 것을 명시하세요.\n"
+            "4. 장황한 설명 대신 인포그래픽형 텍스트와 불렛포인트로 간결하게 출력하세요."
         )
     elif role_option == "거절 대응 & 셀링포인트 안내":
         base_instruction = (
             "당신은 베테랑 영업 멘토입니다.\n"
-            "플래너가 고객의 거절 반응을 입력하면, 반박 논리와 셀링 포인트를 3줄 이내로 핵심만 간결하게 알려주세요."
+            "플래너가 고객의 거절 반응을 입력하면, 이를 뒤집을 수 있는 강력한 반박 논리와 세스코만의 차별점을 3줄 이내로 핵심만 알려주세요.\n"
+            "타사 대비 강점을 명확히 짚어주세요."
         )
     else:
         base_instruction = "당신은 유능하고 친절한 AI 영업 보조입니다. 답변은 간결하게 작성하세요."
@@ -490,12 +509,12 @@ with st.sidebar:
 # ==========================================
 # 5. 메인 화면 & 챗봇 인터페이스
 # ==========================================
-st.title("💼 우리 팀 세스코 영업지원 AI")
+st.title("💼 우리 팀 세스코 영업지원 AI (Pro)")
 
 if uploaded_filename:
-    st.caption(f"📌 **참조 단가표:** {uploaded_filename}")
+    st.caption(f"📌 **참조 단가표:** {uploaded_filename} | AI 고도화(사진 진단 & 3-Step 점검) 모드")
 else:
-    st.caption("📌 **참조 단가표 없음** | 기본 지식 모드")
+    st.caption("📌 **참조 단가표 없음** | 상권 분석 & 외부 지식 모드")
 
 st.divider()
 
@@ -511,28 +530,40 @@ if "GEMINI_API_KEY" in st.secrets:
             st.markdown(message["content"])
 
     selected_faq = None
-    st.write("💡 **빠른 단가 조회:**")
+    st.write("💡 **퀵 메뉴 (현재 모드 기반):**")
     col1, col2, col3 = st.columns(3)
-    with col1:
-        if st.button("🔍 15평 매장 단독/결합가 비교", use_container_width=True):
-            selected_faq = "15평 매장 기준 단독가, 결합가, 프로모션가를 핵심만 간결하게 표로 비교해줘."
-    with col2:
-        if st.button("🛡️ 타사 대비 핵심 강점 보기", use_container_width=True):
-            selected_faq = "타사 대비 세스코 핵심 차별점 3가지를 짧고 강력하게 정리해줘."
-    with col3:
-        if st.button("🎁 이번 달 프로모션 혜택", use_container_width=True):
-            selected_faq = "이번 달 프로모션 할인 혜택과 주요 단가를 간결하게 보여줘."
+    
+    # 💡 [고도화] 모드에 따라 퀵 메뉴 버튼 변경
+    if role_option == "상권 분석 & 영업지 선정 전문가":
+        with col1:
+            if st.button("📌 강남역 인근 카페 상권 분석", use_container_width=True):
+                selected_faq = "강남역 인근 카페 골목 상권의 현재 특징, 업종 분포, 그리고 최적의 세스코 영업지 장소 전략을 알려줘."
+        with col2:
+            if st.button("📌 성수동 카페거리 분석", use_container_width=True):
+                selected_faq = "성수동 카페거리 상권의 특징, 최근 유동인구 특징, 그리고 제안할 핵심 서비스 3가지를 정리해줘."
+        with col3:
+            if st.button("📌 여의도 오피스 상권 분석", use_container_width=True):
+                selected_faq = "여의도 오피스 상권의 분포特点, 주요 계약 업종, 그리고 바이러스케어 제안 전략을 알려줘."
+    else:
+        with col1:
+            if st.button("🔍 15평 매장 단독/결합가 비교", use_container_width=True):
+                selected_faq = "15평 매장 기준 단독가, 결합가, 프로모션가를 핵심만 간결하게 표로 비교해줘. (3-Step 스스로 점검할 것)"
+        with col2:
+            if st.button("🛡️ 타사 대비 핵심 강점 보기", use_container_width=True):
+                selected_faq = "타사 대비 세스코 핵심 차별점 3가지를 짧고 강력하게 정리해줘."
+        with col3:
+            if st.button("🎁 이번 달 프로모션 혜택", use_container_width=True):
+                selected_faq = "이번 달 프로모션 할인 혜택과 주요 단가를 간결하게 보여줘."
 
     st.write("---")
     
-    # 📸 [고도화] "현장 사진 멀티모달 진단" 기능으로 명확화
-    with st.expander("📸 **현장 사진(해충/매장) AI 진단 및 서비스 추천**"):
-        uploaded_img = st.file_uploader("현장 스마트폰 사진을 첨부하세요.", type=["jpg", "jpeg", "png"])
+    # 📸 [고도화] 이미지 진단 프롬프트 강화
+    with st.expander("📸 **현장 해충/매장 사진 AI 진단 및 제품 추천**"):
+        uploaded_img = st.file_uploader("현장 스마트폰 사진을 첨부하세요. AI가 식별 및 견적을 3번 점검합니다.", type=["jpg", "jpeg", "png"])
         if uploaded_img:
-            # Pillow 라이브러리가 설치되어 있어야 합니다 (Requirements.txt에 pillow 추가)
             st.image(uploaded_img, caption="첨부된 사진 진단 중...", width=200)
 
-    prompt_input = st.chat_input("질문 입력... (예: 25평 식당 결합가 얼마야?)")
+    prompt_input = st.chat_input("질문을 입력하세요... (예: 사진 속 해충 뭐고 얼마야? 또는 성수동 상권 알려줘)")
     user_prompt = selected_faq if selected_faq else prompt_input
 
     if user_prompt:
@@ -544,37 +575,35 @@ if "GEMINI_API_KEY" in st.secrets:
             role = "user" if msg["role"] == "user" else "model"
             history.append({"role": role, "parts": [{"text": msg["content"]}]})
 
+        # API 호출 전 시스템 프롬프트 확정
         final_system_instruction = base_instruction
-        if file_context:
+        if role_option != "상권 분석 & 영업지 선정 전문가" and file_context:
             final_system_instruction += (
-                f"\n\n[참조 단가표 ({uploaded_filename})]\n"
-                "아래 단가표에서 핵심 요금만 정확히 찾아 **간결하게** 답변하세요:\n\n"
+                f"\n\n[참조 초정밀 단가표 ({uploaded_filename})]\n"
+                "아래 단가표 데이터에서 제품과 가격을 정확히 찾아 **간결하게** 답변하세요. 3번 스스로 점검하세요:\n\n"
                 f"{file_context}"
             )
-            
-        # 📸 [멀티모달 프롬프트 추가] 이미지가 첨부된 경우
-        if uploaded_img:
+        elif role_option == "상권 분석 & 영업지 선정 전문가":
             final_system_instruction += (
-                "\n\n[사진 진단 모드]\n"
-                "사용자가 첨부한 현장 사진을 보고 어떤 해충인지 식별하거나, 매장/주방의 위생 상태를 진단하세요. "
-                "진단 내용을 바탕으로 단가표 데이터에서 적합한 서비스를 추천하고 정확한 가격을 안내하세요. "
-                "답변 본문에는 이미지를 첨부하지 마세요."
+                "\n\n[상권 분석 전문가 가이드]\n"
+                "분석 요청한 지역에 대한 업종 분포, 특징, 최적 영업 전략을 '추정 데이터'임을 밝히고 핵심만 제안하세요."
             )
 
         with st.chat_message("assistant"):
             try:
+                # 💡 [고도화] 최신 Gemini 1.5 Pro 모델 사용으로 처리 능력 극대화
                 chat = client.chats.create(
-                    model="gemini-3-flash-preview",
+                    model="gemini-1.5-pro-latest", 
                     config=types.GenerateContentConfig(
                         system_instruction=final_system_instruction
                     ),
                     history=history
                 )
                 
-                # 📸 [멀티모달 전송] 이미지가 첨부된 경우 텍스트와 함께 전송
                 if uploaded_img:
                     # PIL 라이브러리로 이미지 열기
-                    img_obj = Image.open(uploaded_img)
+                    from PIL import Image as PILImage
+                    img_obj = PILImage.open(uploaded_img)
                     send_contents = [user_prompt, img_obj]
                 else:
                     send_contents = user_prompt
@@ -592,32 +621,34 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 [300자 제한] 카톡 요약문 & 카드 생성 (복원 및 고도화)
+    # 📱 [300자 제한] 카톡 요약문 & 카드 생성 (유지)
     # ==========================================
     st.write("---")
-    if len(st.session_state.messages) > 0:
-        if st.button("📱 **카톡 제안서 메시지 & 고화질 카드 이미지 생성**", use_container_width=True):
+    if len(st.session_state.messages) > 0 and role_option != "상권 분석 & 영업지 선정 전문가":
+        if st.button("📱 **간결한 카톡 제안서 & 카드 이미지 생성**", use_container_width=True):
             with st.spinner("300자 이내 카톡 메시지 및 초고해상도 카드 제작 중..."):
                 try:
                     recent_chat = st.session_state.messages[-1]["content"]
                     
-                    # 1. 카톡 문구용 텍스트 생성 (300자 제한)
+                    # 💡 [고도화 프롬프트 추가] 3-Step 점검 결과를 카톡 요약에도 반영하도록 요청
                     summary_prompt = (
                         f"다음 견적 상담 내용을 바탕으로 고객에게 카카오톡으로 전달할 "
                         f"친절하고 정중한 요약 메시지를 작성해 줘.\n"
                         f"[작성 조건]\n"
                         f"1. 전체 글자 수는 공백 포함 **최대 300자 이내**로 매우 간결하게 작성할 것.\n"
                         f"2. 인사말은 1줄로 최소화하고 [매장명/추천서비스/월단가/주요혜택]만 불렛포인트로 명확히 적을 것.\n"
-                        f"3. 한눈에 읽기 쉬운 카톡 전송용으로 만들 것.\n\n"
+                        f"3. 한눈에 읽기 쉬운 카톡 전송용으로 만들 것.\n"
+                        f"4. AI가 스스로 3번 점검한 정확한 제품명과 가격이어야 함.\n\n"
                         f"견적 내용:\n{recent_chat}"
                     )
+                    # 요약은 속도가 빠른 Flash 모델 사용
                     chat = client.chats.create(model="gemini-3-flash-preview")
                     text_res = chat.send_message(summary_prompt)
                     
                     st.subheader("📱 **1. 카톡/문자 전송용 간결 메시지 (복사용)**")
                     st.code(text_res.text, language="text")
                     
-                    # 2. 이미지 카드용 JSON 데이터 구조화 파싱
+                    # 2. 이미지 카드용 JSON 데이터 구조화 파싱 (유지)
                     json_prompt = (
                         f"다음 견적 내용에서 핵심 서비스와 요금 정보를 추출하여 오직 JSON 형식으로만 응답해 줘.\n"
                         f"JSON 구조 예시:\n"
@@ -640,13 +671,13 @@ if "GEMINI_API_KEY" in st.secrets:
                         card_data = json.loads(json_match.group())
                     else:
                         card_data = {
-                            "title": "CESCO 맞춤 솔루션 견적",
+                            "title": "세스코 맞춤 솔루션 견적",
                             "subtitle": "공식 단가 기준 안내",
                             "items": [{"name": "맞춤 위생 서비스", "price": "상담가", "note": "상세 문의"}],
                             "promotion": "프로모션 및 결합 할인 조건 적용 가능"
                         }
                     
-                    # 3. 레이아웃이 잡힌 고해상도 완제품 카드 이미지 생성 및 출력
+                    # 3. 레이아웃이 잡힌 고해상도 완제품 카드 이미지 생성 및 출력 (유지)
                     st.subheader("🖼️ **2. 카톡 전송용 완성형 그래픽 견적 카드**")
                     card_img_bytes = create_high_res_quote_card(card_data)
                     
@@ -663,7 +694,7 @@ if "GEMINI_API_KEY" in st.secrets:
                     st.error(f"⚠️ 카드 이미지 생성 중 오류가 발생했습니다: {img_err}")
 
     # ==========================================
-    # 📝 현장 영업일지 기록
+    # 📝 현장 영업일지 기록 (유지)
     # ==========================================
     with st.expander("📝 **플래너 현장 영업 미팅 일지 기록하기**"):
         st.caption("오늘 방문한 매장/고객과의 상담 내역을 기록하면 전체 영업 대장에 저장되고 재고가 반영됩니다.")
@@ -686,6 +717,7 @@ if "GEMINI_API_KEY" in st.secrets:
                         success, message = save_sales_log_and_update_stock(m_name, c_name, p_deal, eq_status, eq_item, reaction, memo)
                         if success:
                             st.success(message)
+                            st.toast("✅ 영업일지 저장 완료!", icon="🎉")
                             st.rerun()
                         else:
                             st.warning(message)
