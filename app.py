@@ -567,9 +567,9 @@ if "GEMINI_API_KEY" in st.secrets:
 
         with st.chat_message("assistant"):
             try:
-                # 표준 모델 gemini-2.5-pro 적용
+                # 💡 [핵심 수정] Gemini 3 시리즈 모델 적용
                 chat = client.chats.create(
-                    model="gemini-2.5-pro", 
+                    model="gemini-3-flash-preview", 
                     config=types.GenerateContentConfig(
                         system_instruction=final_system_instruction
                     ),
