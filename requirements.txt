@@ -6,3 +6,4 @@ pypdf
 tabulate
 pillow
 requests
+openai
