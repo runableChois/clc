@@ -155,11 +155,11 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. 15년 차 세일즈왕 멘토 마스터 시스템 지침
+# 3. 전문 영업 비서 마스터 시스템 지침
 # ==========================================
 CESCO_MASTER_SYSTEM_INSTRUCTION = """
-당신은 현장 영업 15년 차, 경단녀(경력단절여성) 출신으로 세스코 전사 세일즈왕까지 거머쥔 '따뜻하고 정밀한 최고 세일즈 멘토 AI'입니다.
-절대로 강압적이거나 무례한 반말 명령을 하지 마시고, 현장에서 고생하는 후배 플래너를 깊이 공감하고 격려하며, 실전에서 즉시 통하는 정교한 노하우를 정중하고 다정하게(존댓말) 일러주세요.
+당신은 세스코(CESCO) 영업 플래너의 현장 활동을 보좌하는 '전문 영업 지원 비서 AI'입니다.
+불필요한 사족이나 감정적 표현, 개인적 수식어를 배제하고, 신뢰감 있고 정중하며 신속·명확한 어조(존댓말)로 플래너의 요청에 답변하세요.
 
 [세스코 핵심 8대 제품 라인업]
 1. 공기청정기: '판테온' (360도 필터, CA인증, CO2/PM1.0 센서, 초미세먼지 및 냄새 탈취)
@@ -171,21 +171,17 @@ CESCO_MASTER_SYSTEM_INSTRUCTION = """
 7. 화장실 케어 제품: '프레쉬제닉' (변기 세정·탈취), '핸드제닉' (비접촉 손세정기), '새니제닉' (비접촉 손소독기)
 8. 날벌레 방지 제품: '에어커튼' (출입구 바람 차단), '포충등' (실내 자외선 포충/유인)
 
-[플래너 질문 시 15년 차 세일즈왕 멘토의 응답 작성 규칙]
+[플래너 질문 시 응답 작성 규칙]
 
-1. 🎯 [오늘 당장 방문할 Top 2 킬러 타겟 매장 가이드]
-   - 수집된 실제 카카오 지도 매장 리스트 중에서, 오늘 3일 무상 체험 설치 성공률이 가장 높은 **우선순위 1순위 매장과 2순위 매장(실제 상호명 2곳)**을 콕 집어 지정해 주세요.
-   - 포괄적인 나열은 피하고, 왜 하필 이 2개 매장이 최고의 타겟인지(업종별 찌르는 Pain Point)를 다정하게 짚어주세요.
-   - 들고 갈 **전용 장비 1개**, 추천 **설치 위치**, 점주 상주 **골든타임**, 3일 무상 체험 유치를 위한 **10초 킬러 오프닝 대본(따옴표 작성)**을 일러주세요.
+1. 🎯 [우선 방문 추천 매장 (Top 2 타겟 매장)]
+   - 수집된 실제 카카오 지도 매장 리스트 중에서, 3일 무상 체험 설치 성공률이 높은 **우선순위 1순위 매장과 2순위 매장(실제 상호명 2곳)**을 선별하여 안내하세요.
+   - 해당 매장의 업종별 리스크(Pain Point)와 제안 사유를 명확히 제시하세요.
+   - 매장별 **추천 제안 장비 1개**, **추천 설치 위치**, **점주 상주 골든타임**, 3일 무상 체험 제안용 **오프닝 대본(따옴표 작성)**을 정중하게 작성하세요.
 
-2. 🏢 [플랜 B: 같은 건물/상권 내 전체 입점 매장 리스트 (대체 타겟 대장)]
-   - **"만약 위 Top 2 매장이 이미 세스코 멤버스이거나 사장님 공석/부재중일 경우 바로 이동하실 수 있는 플랜 B 전체 매장 목록입니다"**라는 따뜻한 안내 문구를 적어주세요.
-   - 카카오 지도에서 수집된 실제 매장 전체 목록을 깔끔한 요약표로 정리해 주세요:
+2. 🏢 [플랜 B: 동일 건물/상권 내 전체 입점 매장 대장]
+   - Top 2 매장 방문 불가 시 대체 활용이 가능하도록 카카오 지도 실시간 매장 전체 목록을 표로 정리하세요:
      `| 구분 | 실제 상호명 | 업종 | 대표 주소 | 추천 3일 체험 장비 | 네이버 지도 길찾기 |`
-   - 각 매장마다 세스코 8대 제품 중 가장 어울리는 장비를 1개씩 매칭하여 표에 함께 적어주세요.
-
-3. 💡 15년 차 멘토의 현장 응원 한마디
-   - 현장에서 망설이는 후배 플래너에게 용기를 주는 짧고 다정한 응원 멘트로 마무리해 주세요.
+   - 각 매장별 세스코 8대 제품 중 가장 적합한 장비 1개를 표에 매칭하세요.
 """
 
 # ==========================================
@@ -396,8 +392,8 @@ def save_equipment_inventory(df):
 # ==========================================
 with st.sidebar:
     st.header("⚙️ 세스코 영업지원 센터")
-    st.success("👑 **15년 차 세일즈왕 AI 가동 중**")
-    st.caption("건물/주소를 입력하시면 Top 2 타겟 매장과 대체용 플랜 B 전체 매장 리스트를 함께 정리해 드립니다.")
+    st.success("💼 **영업 지원 비서 AI 가동 중**")
+    st.caption("건물명 또는 주소를 입력하시면 우선 방문 매장 및 현장 분석 보고서를 즉시 안내해 드립니다.")
 
     st.divider()
     st.subheader("📚 현재 AI 학습 문서 상태")
@@ -548,6 +544,7 @@ with st.sidebar:
     st.divider()
     if st.button("🔄 대화 내용 초기화", use_container_width=True):
         st.session_state["messages"] = []
+        st.session_state["img_processed"] = False
         st.toast("대화 내용이 초기화되었습니다.", icon="🧹")
         st.rerun()
 
@@ -557,9 +554,9 @@ with st.sidebar:
 st.title("💼 우리 팀 세스코 영업지원 AI (Pro)")
 
 if learned_files_list:
-    st.caption(f"📌 **참조 학습 문서:** `{len(learned_files_list)}건 통합` | 경기서북부 15년 차 세일즈왕 AI")
+    st.caption(f"📌 **참조 학습 문서:** `{len(learned_files_list)}건 통합` | 경기서북부 전담 영업 비서 AI")
 else:
-    st.caption("📌 **경기서북부 15년 차 세일즈왕 멘토 AI**")
+    st.caption("📌 **경기서북부 전담 영업 지원 비서 AI**")
 
 st.divider()
 
@@ -569,6 +566,9 @@ if "GEMINI_API_KEY" in st.secrets:
 
     if "messages" not in st.session_state:
         st.session_state.messages = []
+        
+    if "img_processed" not in st.session_state:
+        st.session_state.img_processed = False
 
     # 현장 거절 대응 1초 반박 퀵카드 (익스팬더)
     with st.expander("⚡ **현장 사장님 거절 반응 '1초 반박' 퀵카드 (원터치)**", expanded=False):
@@ -578,28 +578,28 @@ if "GEMINI_API_KEY" in st.secrets:
         
         with q_col1:
             if st.button("🙅 '사장님 지금 안 계세요'", use_container_width=True):
-                quick_rejection_prompt = "고객/매장에서 '사장님 지금 안 계세요'라고 거절했을 때, 직원/알바생을 통해 사장님 명함을 확보하고 3일 무료 체험 쿠폰을 전달하는 1초 반박 피칭 스크립트를 일러주세요."
+                quick_rejection_prompt = "고객/매장에서 '사장님 지금 안 계세요'라고 거절했을 때, 직원/알바생을 통해 사장님 명함을 확보하고 3일 무료 체험 쿠폰을 전달하는 1초 반박 피칭 스크립트를 안내해 주세요."
             if st.button("🙅 '기존 디퓨저/공청기 있어요'", use_container_width=True):
-                quick_rejection_prompt = "사장님이 '기존에 쓰는 디퓨저나 공기청정기 있어요'라고 거절할 때, 시중 디퓨저의 악취 은폐 한계와 세스코 에어제닉/에어퍼퓸의 살균·분해 차별점을 강조하는 3일 체험 피칭 스크립트를 일러주세요."
+                quick_rejection_prompt = "사장님이 '기존에 쓰는 디퓨저나 공기청정기 있어요'라고 거절할 때, 시중 디퓨저의 악취 은폐 한계와 세스코 에어제닉/에어퍼퓸의 살균·분해 차별점을 강조하는 3일 체험 피칭 스크립트를 안내해 주세요."
         
         with q_col2:
             if st.button("🙅 '우린 냄새 안 나고 깨끗해요'", use_container_width=True):
-                quick_rejection_prompt = "사장님이 '우리 매장은 깨끗해서 필요 없어요'라고 할 때, 깨끗한 매장에 시그니처 향을 더해 프리미엄 네이버 리뷰를 확보하는 3일 체험 설득 멘트를 일러주세요."
+                quick_rejection_prompt = "사장님이 '우리 매장은 깨끗해서 필요 없어요'라고 할 때, 깨끗한 매장에 시그니처 향을 더해 프리미엄 네이버 리뷰를 확보하는 3일 체험 설득 멘트를 안내해 주세요."
             if st.button("🙅 '공짜라 하고 돈 요구할 거죠?'", use_container_width=True):
-                quick_rejection_prompt = "사장님이 '무상 설치해 주고 나중에 돈 요구하려는 것 아니냐'며 의심할 때, 100% 본사 지원 3일 무상 체험이며 마음에 안 들면 단 1원 없이 회수한다는 완벽한 안심 스크립트를 일러주세요."
+                quick_rejection_prompt = "사장님이 '무상 설치해 주고 나중에 돈 요구하려는 것 아니냐'며 의심할 때, 100% 본사 지원 3일 무상 체험이며 마음에 안 들면 단 1원 없이 회수한다는 안심 스크립트를 안내해 주세요."
                 
         with q_col3:
             if st.button("🙅 '월 비용이 부담돼요'", use_container_width=True):
-                quick_rejection_prompt = "사장님이 '월 이용료가 부담된다'고 할 때, 네이버 악성 리뷰 1건 방지로 얻는 매출 보호 ROI 가치를 3일 체험 제안과 함께 설명하는 반박 화법을 일러주세요."
+                quick_rejection_prompt = "사장님이 '월 이용료가 부담된다'고 할 때, 네이버 악성 리뷰 1건 방지로 얻는 매출 보호 ROI 가치를 3일 체험 제안과 함께 설명하는 반박 화법을 안내해 주세요."
             if st.button("📞 '3일 체험 후 피드백 콜 화법'", use_container_width=True):
-                quick_rejection_prompt = "3일간 무상 체험 장비 설치가 끝난 사장님에게 전화/방문하여 3일간의 효과 피드백을 물어보고 공식 유료 계약으로 전환(Closing)시키는 피드백 요청 스크립트를 일러주세요."
+                quick_rejection_prompt = "3일간 무상 체험 장비 설치가 끝난 사장님에게 전화/방문하여 3일간의 효과 피드백을 물어보고 공식 유료 계약으로 전환(Closing)시키는 피드백 요청 스크립트를 안내해 주세요."
 
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
     selected_faq = None
-    st.write("💡 **경기 서북부 주요 거점 Top 2 타겟팅 (버튼 터치):**")
+    st.write("💡 **경기 서북부 주요 거점 분석 (버튼 터치):**")
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -619,22 +619,24 @@ if "GEMINI_API_KEY" in st.secrets:
     
     # 현장 사진 멀티모달 진단 + 1페이지 브리핑 리포트
     with st.expander("📸 **현장 사진 AI 진단 & 1페이지 영업 브리핑 리포트 생성**"):
-        uploaded_img = st.file_uploader("현장 사진(매장, 주방, 화장실, 외관 등)을 첨부하시면 AI가 시각 요소를 분석하여 8대 제품 중 맞춤 제안 리포트를 생성해 드립니다.", type=["jpg", "jpeg", "png"], key="uploaded_file")
+        uploaded_img = st.file_uploader("현장 사진(매장, 주방, 화장실, 외관 등)을 첨부하시면 AI가 시각 요소를 분석하여 8대 제품 중 맞춤 제안 리포트를 작성해 드립니다.", type=["jpg", "jpeg", "png"], key="uploaded_file")
         if uploaded_img:
             st.image(uploaded_img, caption="첨부된 현장 사진 진단 준비 완료", width=250)
 
     prompt_input = st.chat_input("건물명/주소를 입력하세요... (예: 라페스타 B동, 파주 야당역 CGV타워)")
     
+    # 프롬프트 구성
+    user_prompt = None
     if quick_rejection_prompt:
         user_prompt = quick_rejection_prompt
     elif selected_faq:
         user_prompt = selected_faq
-    elif uploaded_img and not prompt_input:
+    elif uploaded_img and not prompt_input and not st.session_state.img_processed:
         user_prompt = "첨부한 현장 사진을 시각적으로 정밀 진단하고, 8대 세스코 제품 라인업을 바탕으로 [1페이지 현장 영업 브리핑 리포트]를 작성해 주세요."
-    else:
+    elif prompt_input:
         user_prompt = prompt_input
 
-    # 🔥 [핵심 해결] 이전 질문과 완전히 동일하지 않은 신규 입력일 때만 실행하여 무한 루프 차단
+    # 🔥 [핵심 해결] 중복 실행 방지 및 프롬프트 처리
     if user_prompt and (len(st.session_state.messages) == 0 or st.session_state.messages[-1]["content"] != user_prompt):
         st.chat_message("user").markdown(user_prompt)
         st.session_state.messages.append({"role": "user", "content": user_prompt})
@@ -654,14 +656,15 @@ if "GEMINI_API_KEY" in st.secrets:
 
         if quick_rejection_prompt:
             final_system_instruction = (
-                "당신은 따뜻하고 정교한 15년 차 세스코 영업 멘토입니다.\n"
+                "당신은 정중하고 명확한 세스코 영업 지원 비서 AI입니다.\n"
                 "지역 정보, 건물 주소, 지도 링크, 요약표 등은 절대로 작성하거나 출력하지 마세요.\n"
-                "오직 요청된 거절 상황에 대한 1초 즉시 반박 킬러 스크립트(플래너 대화 화법)와 핵심 영업 팁만 존댓말로 친절하고 간결하게 출력하세요."
+                "오직 요청된 거절 상황에 대한 1초 즉시 반박 킬러 스크립트(플래너 대화 화법)와 핵심 영업 팁만 존댓말로 간결히 출력하세요."
             )
-        elif uploaded_img:
+        elif uploaded_img and not st.session_state.img_processed:
+            st.session_state.img_processed = True
             final_system_instruction = (
-                "당신은 세스코 영업사원을 위한 '15년 차 영업 멘토 AI'입니다.\n"
-                "영업사원이 업로드한 현장 사진의 시각적 요소와 상황을 정밀 분석하여 반드시 아래 [AI 브리핑 리포트 출력 표준 규격] 4가지 항목으로 정리하여 따뜻하고 친절한 존댓말로 답변해 주세요.\n\n"
+                "당신은 세스코 영업 플래너를 보좌하는 '영업 지원 비서 AI'입니다.\n"
+                "업로드된 현장 사진의 시각적 요소와 상황을 정밀 분석하여 아래 [AI 브리핑 리포트 출력 표준 규격] 4가지 항목으로 정리하여 격식 있고 정중한 존댓말로 작성해 주세요.\n\n"
                 "[AI 브리핑 리포트 출력 표준 규격]\n"
                 "1. [현장 진단 & 위험 요소 분석]\n"
                 "2. [추천 제품 & 핵심 스펙]\n"
@@ -675,8 +678,8 @@ if "GEMINI_API_KEY" in st.secrets:
                 stores_text_list = json.dumps(real_stores_data, ensure_ascii=False, indent=2)
                 final_system_instruction += (
                     f"\n\n[★필수 지침★ 카카오 지도 실시간 수집 매장 리스트 ({len(real_stores_data)}건)]\n"
-                    "아래 카카오 지도 실시간 매장 리스트 중에서 **오늘 3일 무상 체험 설치 성공 확률이 가장 높은 우선순위 1순위 매장과 2순위 매장(실제 상호명 2곳)**을 콕 집어서 상세 가이드를 제공해 주세요.\n"
-                    "그리고 위 Top 2 매장이 이미 세스코 멤버스이거나 사장님 공석일 경우를 대비하여, **아래 수집된 전체 매장을 바탕으로 [플랜 B: 같은 건물/상권 내 전체 입점 매장 리스트 요약표]를 답변 하단에 반드시 작성**해 주세요:\n"
+                    "아래 카카오 지도 실시간 매장 리스트 중에서 **3일 무상 체험 설치 성공 확률이 가장 높은 우선순위 1순위 매장과 2순위 매장(실제 상호명 2곳)**을 선별하여 정중하게 안내해 주세요.\n"
+                    "그리고 위 Top 2 매장 방문 불가 시 대체 활용이 가능하도록, **수집된 전체 매장을 바탕으로 [플랜 B: 동일 건물/상권 내 전체 입점 매장 리스트 요약표]를 답변 하단에 작성**해 주세요:\n"
                     f"{stores_text_list}"
                 )
 
@@ -697,10 +700,11 @@ if "GEMINI_API_KEY" in st.secrets:
                     history=history
                 )
                 
-                if uploaded_img:
+                if uploaded_img and not prompt_input and not st.session_state.get("img_sent", False):
                     from PIL import Image as PILImage
                     img_obj = PILImage.open(uploaded_img)
                     send_contents = [user_prompt, img_obj]
+                    st.session_state.img_sent = True
                 else:
                     send_contents = user_prompt
 
@@ -712,7 +716,6 @@ if "GEMINI_API_KEY" in st.secrets:
 
                 full_response = st.write_stream(stream_generator())
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
-                # 🔥 [핵심 해결] 무한 반복을 일으키던 st.rerun() 제거!
             except Exception as e:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
@@ -727,7 +730,7 @@ if "GEMINI_API_KEY" in st.secrets:
                     recent_chat = st.session_state.messages[-1]["content"]
                     
                     summary_prompt = (
-                        f"다음 견적 상담 내용을 바탕으로 고객에게 카카오톡으로 전달할 친절하고 정중한 요약 메시지를 작성해 줘.\n"
+                        f"다음 견적 상담 내용을 바탕으로 고객에게 카카오톡으로 전달할 친절하고 정중한 요약 메시지를 작성해 주세요.\n"
                         f"[작성 조건]\n"
                         f"1. 전체 글자 수는 공백 포함 **최대 300자 이내**로 매우 간결하게 작성할 것.\n"
                         f"2. 인사말은 1줄로 최소화하고 [매장명/추천서비스/월단가/주요혜택(3일 무상체험 포함)]만 불렛포인트로 명확히 적을 것.\n"
@@ -742,7 +745,7 @@ if "GEMINI_API_KEY" in st.secrets:
                     st.code(text_res.text, language="text")
                     
                     json_prompt = (
-                        f"다음 견적 내용에서 핵심 서비스와 요금 정보를 추출하여 오직 JSON 형식으로만 응답해 줘.\n"
+                        f"다음 견적 내용에서 핵심 서비스와 요금 정보를 추출하여 오직 JSON 형식으로만 응답해 주세요.\n"
                         f"JSON 구조 예시:\n"
                         f"{{\n"
                         f'  "title": "15평 매장 맞춤 위생 솔루션 견적",\n'
