@@ -155,37 +155,7 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. 전문 영업 비서 마스터 시스템 지침
-# ==========================================
-CESCO_MASTER_SYSTEM_INSTRUCTION = """
-당신은 세스코(CESCO) 영업 플래너의 현장 활동을 보좌하는 '전문 영업 지원 비서 AI'입니다.
-불필요한 사족이나 감정적 표현, 개인적 수식어를 배제하고, 신뢰감 있고 정중하며 신속·명확한 어조(존댓말)로 플래너의 요청에 답변하세요.
-
-[세스코 핵심 8대 제품 라인업]
-1. 공기청정기: '판테온' (360도 필터, CA인증, CO2/PM1.0 센서, 초미세먼지 및 냄새 탈취)
-2. 공기살균기: '센스미' (UV-C 파워 램프, S형 유로 설계, 부유 바이러스·세균 99.9% 제거, 슬림 디자인)
-3. 탱크형 정수기: '더슬림', '더블', '더맥스' (업소용 대용량, 다중 필터링, 연속 출수)
-4. 직수 정수기: '살균온', '살균온 얼음정수기' (UVnano 코크/아이스룸 살균, 직수형 위생 정수)
-5. 비데: '파워방수비데', '살균방수비데', '듀얼비데', '올인원비데' (IPX6 강력 방수, 전해수/UV 노즐 살균)
-6. 향기 제품: 'エ어퍼퓸200(에어퍼퓸200)', '에어제닉' (공간 맞춤형 자동 향기 분사 및 악취 분해)
-7. 화장실 케어 제품: '프레쉬제닉' (변기 세정·탈취), '핸드제닉' (비접촉 손세정기), '새니제닉' (비접촉 손소독기)
-8. 날벌레 방지 제품: '에어커튼' (출입구 바람 차단), '포충등' (실내 자외선 포충/유인)
-
-[플래너 질문 시 응답 작성 규칙]
-
-1. 🎯 [우선 방문 추천 매장 (Top 2 타겟 매장)]
-   - 수집된 실제 카카오 지도 매장 리스트 중에서, 3일 무상 체험 설치 성공률이 높은 **우선순위 1순위 매장과 2순위 매장(실제 상호명 2곳)**을 선별하여 안내하세요.
-   - 해당 매장의 업종별 리스크(Pain Point)와 제안 사유를 명확히 제시하세요.
-   - 매장별 **추천 제안 장비 1개**, **추천 설치 위치**, **점주 상주 골든타임**, 3일 무상 체험 제안용 **오프닝 대본(따옴표 작성)**을 정중하게 작성하세요.
-
-2. 🏢 [플랜 B: 동일 건물/상권 내 전체 입점 매장 대장]
-   - Top 2 매장 방문 불가 시 대체 활용이 가능하도록 카카오 지도 실시간 매장 전체 목록을 표로 정리하세요:
-     `| 구분 | 실제 상호명 | 업종 | 대표 주소 | 추천 3일 체험 장비 | 네이버 지도 길찾기 |`
-   - 각 매장별 세스코 8대 제품 중 가장 적합한 장비 1개를 표에 매칭하세요.
-"""
-
-# ==========================================
-# 4. 이미지 생성 엔진 (카톡 고화질 견적 카드용)
+# 3. 제안서 이미지 동적 생성 엔진 (Pillow)
 # ==========================================
 FONT_PATH = "NanumGothic-Bold.ttf"
 
@@ -198,67 +168,92 @@ def ensure_korean_font():
         except Exception as e:
             st.error(f"폰트 다운로드 실패: {e}")
 
-def create_high_res_quote_card(card_data):
-    """1200x1600 초고해상도 완제품 이미지 카드 생성"""
+def create_proposal_card_image(title, subtitle, sections):
+    """
+    제안서 내용을 받아 1200x1600 초고해상도 비주얼 이미지 카드로 생성
+    sections: [{"title": "구역 제목", "content": "본문 내용"}, ...]
+    """
     ensure_korean_font()
     width, height = 1200, 1600
-    img = Image.new('RGB', (width, height), color='#f1f5f9')
+    img = Image.new('RGB', (width, height), color='#f8fafc')
     draw = ImageDraw.Draw(img)
     
     try:
-        font_brand = ImageFont.truetype(FONT_PATH, 48)
-        font_subhead = ImageFont.truetype(FONT_PATH, 24)
-        font_title = ImageFont.truetype(FONT_PATH, 34)
-        font_item_name = ImageFont.truetype(FONT_PATH, 30)
-        font_price = ImageFont.truetype(FONT_PATH, 36)
-        font_regular = ImageFont.truetype(FONT_PATH, 24)
-        font_small = ImageFont.truetype(FONT_PATH, 20)
+        font_brand = ImageFont.truetype(FONT_PATH, 44)
+        font_subhead = ImageFont.truetype(FONT_PATH, 22)
+        font_title = ImageFont.truetype(FONT_PATH, 32)
+        font_sect_title = ImageFont.truetype(FONT_PATH, 26)
+        font_body = ImageFont.truetype(FONT_PATH, 20)
+        font_footer = ImageFont.truetype(FONT_PATH, 20)
     except Exception:
-        font_brand = font_subhead = font_title = font_item_name = font_price = font_regular = font_small = ImageFont.load_default()
+        font_brand = font_subhead = font_title = font_sect_title = font_body = font_footer = ImageFont.load_default()
 
-    draw.rectangle([(0, 0), (width, 200)], fill='#003b7a')
-    draw.rectangle([(0, 190), (width, 200)], fill='#00a3e0') 
-    
-    draw.text((60, 45), "💎 CESCO 맞춤 솔루션 견적서", fill='#ffffff', font=font_brand)
-    draw.text((60, 125), "세스코 공식 문서 기반 | 현장 맞춤 케어 제안", fill='#dbeafe', font=font_subhead)
+    # 상단 헤더
+    draw.rectangle([(0, 0), (width, 180)], fill='#003b7a')
+    draw.rectangle([(0, 170), (width, 180)], fill='#00a3e0') 
+    draw.text((60, 40), "🌿 CESCO 프리미엄 솔루션 제안서", fill='#ffffff', font=font_brand)
+    draw.text((60, 110), "고객 맞춤형 위생·환경 케어 제안 시스템", fill='#dbeafe', font=font_subhead)
 
-    draw.rectangle([(50, 240), (width - 50, 370)], fill='#ffffff', outline='#cbd5e1', width=2)
-    title_text = card_data.get("title", "맞춤 위생 솔루션 견적")
-    draw.text((80, 268), title_text[:30], fill='#0f172a', font=font_title)
-    
-    subtitle_text = card_data.get("subtitle", "공식 문서 데이터 기준")
-    draw.text((80, 320), subtitle_text[:40], fill='#64748b', font=font_regular)
+    # 타이틀 영역
+    draw.rectangle([(50, 210), (width - 50, 330)], fill='#ffffff', outline='#cbd5e1', width=2)
+    draw.text((80, 235), title[:35], fill='#0f172a', font=font_title)
+    draw.text((80, 285), subtitle[:45], fill='#64748b', font=font_body)
 
-    items = card_data.get("items", [])
-    y_offset = 400
-    for item in items[:4]:
-        draw.rectangle([(50, y_offset), (width - 50, y_offset + 140)], fill='#ffffff', outline='#e2e8f0', width=2)
+    # 섹션별 본문 카드 출력 (최대 3개 섹션)
+    y_offset = 360
+    for sect in sections[:3]:
+        sec_title = sect.get("title", "")
+        sec_content = sect.get("content", "")
         
-        name = item.get("name", "서비스 항목")
-        note = item.get("note", "")
-        price = item.get("price", "상담가")
-
-        draw.text((80, y_offset + 30), name[:20], fill='#0f172a', font=font_item_name)
-        if note:
-            draw.text((80, y_offset + 80), note[:28], fill='#64748b', font=font_small)
-
-        draw.rectangle([(width - 380, y_offset + 30), (width - 80, y_offset + 110)], fill='#eff6ff', outline='#bfdbfe', width=1)
-        draw.text((width - 360, y_offset + 48), price, fill='#003b7a', font=font_price)
+        # 텍스트 줄바꿈 계산
+        lines = []
+        for paragraph in sec_content.split('\n'):
+            if not paragraph.strip():
+                lines.append("")
+                continue
+            # 간단 글자수 단위 줄바꿈
+            for i in range(0, len(paragraph), 45):
+                lines.append(paragraph[i:i+45])
+                
+        box_height = max(180, 70 + len(lines) * 28)
         
-        y_offset += 160
+        draw.rectangle([(50, y_offset), (width - 50, y_offset + box_height)], fill='#ffffff', outline='#e2e8f0', width=2)
+        draw.text((80, y_offset + 22), sec_title, fill='#003b7a', font=font_sect_title)
+        
+        line_y = y_offset + 65
+        for line in lines:
+            if line_y > y_offset + box_height - 20:
+                break
+            draw.text((80, line_y), line, fill='#334155', font=font_body)
+            line_y += 28
+            
+        y_offset += box_height + 20
 
-    promo_text = card_data.get("promotion", "")
-    if promo_text:
-        draw.rectangle([(50, y_offset + 10), (width - 50, y_offset + 180)], fill='#e0f2fe', outline='#0284c7', width=2)
-        draw.text((80, y_offset + 35), "🎁 특별 프로모션 & 결합 혜택", fill='#0369a1', font=font_title)
-        draw.text((80, y_offset + 105), promo_text[:45], fill='#0f172a', font=font_regular)
-
-    draw.rectangle([(0, height - 130), (width, height)], fill='#0f172a')
-    draw.text((60, height - 95), "📞 서비스 문의 및 신청: 세스코 담당 플래너", fill='#ffffff', font=font_regular)
+    # 하단 푸터
+    draw.rectangle([(0, height - 100), (width, height)], fill='#0f172a')
+    draw.text((60, height - 60), "📞 세스코 공식 담당 플래너 | 3일 무상 체험 서비스 제공", fill='#ffffff', font=font_footer)
     
     buf = io.BytesIO()
     img.save(buf, format='PNG')
     return buf.getvalue()
+
+# ==========================================
+# 4. 전문 영업 비서 마스터 시스템 지침
+# ==========================================
+CESCO_MASTER_SYSTEM_INSTRUCTION = """
+당신은 세스코(CESCO) 영업 플래너의 현장 활동을 보좌하는 '전문 영업 지원 비서 AI'입니다.
+신뢰감 있고 정중하며 신속·명확한 어조(존댓말)로 플래너의 요청에 답변하세요.
+
+[세스코 핵심 8대 제품 라인업]
+1. 공기청정기: '판테온' (360도 필터, CA인증, CO2/PM1.0 센서, 초미세먼지 및 냄새 탈취)
+2. 공기살균기: '센스미' (UV-C 파워 램프, S형 유로 설계, 부유 바이러스·세균 99.9% 제거, 슬림 디자인)
+3. 탱크형 정수기: '더슬림', '더블', '더맥스' (업소용 대용량, 다중 필터링, 연속 출수)
+4. 직수 정수기: '살균온', '살균온 얼음정수기' (UVnano 코크/아이스룸 살균, 직수형 위생 정수)
+5. 비데: '파워방수비데', '살균방수비데', '듀얼비데', '올인원비데' (IPX6 강력 방수, 전해수/UV 노즐 살균)
+6. 향기 제품: '에어퍼퓸200', '에어제닉' (공간 맞춤형 자동 향기 분사 및 악취 분해)
+7. 화장실 케어 제품: '프레쉬제닉' (변기 세정·탈취), '핸드제닉' (비접촉 손세정기), '새니제닉' (비접촉 손소독기)
+8. 날벌레 방지 제품: '에어커튼' (출입구 바람 차단), '포충등' (실내 자외선 포충/유인)
+"""
 
 # ==========================================
 # 5. 데이터 I/O 및 누적 문서 학습 (RAG) 함수
@@ -269,7 +264,6 @@ SALES_LOG_PATH = "sales_activity_log.csv"
 EQUIPMENT_LOG_PATH = "team_equipment_inventory.csv"
 
 def load_knowledge_data():
-    """누적 학습 텍스트 및 학습 파일 목록 로드"""
     context = ""
     file_list_str = ""
     if os.path.exists(KNOWLEDGE_BASE_PATH):
@@ -281,7 +275,6 @@ def load_knowledge_data():
     return context, file_list_str
 
 def add_file_to_cumulative_knowledge(uploaded_file):
-    """업로드된 파일(PDF, Excel, CSV)을 지식 베이스에 누적(Append) 학습"""
     extracted_text = ""
     filename = uploaded_file.name
     
@@ -302,12 +295,10 @@ def add_file_to_cumulative_knowledge(uploaded_file):
 
     if extracted_text:
         current_context, current_files = load_knowledge_data()
-        
         if filename in current_files.split(","):
             return False, f"⚠️ `{filename}` 문서는 이미 학습되어 있습니다."
 
         new_context = current_context + f"\n\n--- [학습 문서 시작: {filename}] ---\n" + extracted_text + f"\n--- [학습 문서 끝: {filename}] ---\n"
-        
         with open(KNOWLEDGE_BASE_PATH, "w", encoding="utf-8") as f:
             f.write(new_context)
             
@@ -315,11 +306,10 @@ def add_file_to_cumulative_knowledge(uploaded_file):
         with open(KNOWLEDGE_FILES_PATH, "w", encoding="utf-8") as f:
             f.write(new_files_list)
             
-        return True, f"✅ `{filename}` 문서 학습 완료! 통합 지식 베이스에 추가되었습니다."
-    return False, f"⚠️ `{filename}` 문서에서 텍스트를 추출할 수 없습니다."
+        return True, f"✅ `{filename}` 문서 학습 완료!"
+    return False, f"⚠️ 텍스트를 추출할 수 없습니다."
 
 def delete_all_knowledge_data():
-    """전체 학습 데이터 초기화"""
     if os.path.exists(KNOWLEDGE_BASE_PATH):
         os.remove(KNOWLEDGE_BASE_PATH)
     if os.path.exists(KNOWLEDGE_FILES_PATH):
@@ -329,7 +319,6 @@ knowledge_context, learned_files_str = load_knowledge_data()
 learned_files_list = [f for f in learned_files_str.split(",") if f]
 
 def save_sales_log(planner_name, client_name, proposed_deal, equipment_status, equipment_item, reaction, memo, install_date=None):
-    """영업 일지 데이터 저장 (3일 체험 스케줄 자동 계산 포함)"""
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     today_date_str = install_date if install_date else datetime.now().strftime("%Y-%m-%d")
     
@@ -367,7 +356,6 @@ def save_sales_log(planner_name, client_name, proposed_deal, equipment_status, e
     df.to_csv(SALES_LOG_PATH, index=False, encoding="utf-8-sig")
 
 def load_equipment_inventory():
-    """플래너별 체험장비 보유 대수 로드"""
     if os.path.exists(EQUIPMENT_LOG_PATH):
         df = pd.read_csv(EQUIPMENT_LOG_PATH)
         if "담당팀원" in df.columns:
@@ -384,7 +372,6 @@ def load_equipment_inventory():
     return default_df
 
 def save_equipment_inventory(df):
-    """체험장비 보유 대수 저장"""
     df.to_csv(EQUIPMENT_LOG_PATH, index=False, encoding="utf-8-sig")
 
 # ==========================================
@@ -718,7 +705,7 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 [고도화] 카톡 요약 제안서 & 1장 제품 상세 제안서 생성
+    # 📱 [고도화] 카톡 요약 제안서 & 1장 제품 상세 제안서 + 이미지 카드 생성 연동
     # ==========================================
     st.write("---")
     st.subheader("📋 제안서 및 카톡 요약 문서 생성 센터")
@@ -726,7 +713,7 @@ if "GEMINI_API_KEY" in st.secrets:
     proposal_tab1, proposal_tab2 = st.tabs(["📱 카톡 1페이지 요약 제안서", "📄 특정 제품 1장 상세 제안서"])
     
     with proposal_tab1:
-        st.caption("고객에게 카카오톡으로 전송할 수 있는 깔끔하고 격식 있는 1페이지 요약 제안서를 생성합니다.")
+        st.caption("고객에게 카카오톡으로 전송할 수 있는 깔끔한 1페이지 요약 제안서 텍스트와 **비주얼 제안서 이미지 카드(.png)**를 동시에 생성합니다.")
         with st.form("kakao_proposal_form"):
             c1, c2 = st.columns(2)
             with c1:
@@ -739,7 +726,7 @@ if "GEMINI_API_KEY" in st.secrets:
             p_sol = st.text_area("추천 맞춤형 솔루션", placeholder="1️⃣ 블루스캔 / 멤버십 방제 서비스\n2️⃣ 세스코 에어제닉 (공기향기케어)")
             p_ben = st.text_input("특별 혜택 사항", placeholder="초기 비용 할인 및 3일 무상 체험 서비스 적용")
             
-            submitted_kakao = st.form_submit_button("✨ 고급형 카톡 제안서 생성하기", use_container_width=True)
+            submitted_kakao = st.form_submit_button("✨ 고급형 카톡 제안서 & 이미지 카드 생성하기", use_container_width=True)
             
         if submitted_kakao:
             if not p_store or not p_sol:
@@ -774,26 +761,48 @@ if "GEMINI_API_KEY" in st.secrets:
 💡 "깨끗하고 안전한 공간은 고객의 발걸음을 머물게 합니다."
 지금 바로 세스코 프리미엄 케어를 경험해보세요!
 ━━━━━━━━━━━━━━━━━━━━"""
-                st.success("✅ 고품격 카카오톡 1페이지 제안서가 완성되었습니다!")
+                st.success("✅ 고품격 카카오톡 1페이지 제안서와 비주얼 이미지 카드가 완성되었습니다!")
+                
+                # 1. 텍스트 마크다운 출력
                 st.code(kakao_formatted_text, language="markdown")
-                st.info("💡 우측 상단의 **Copy 버튼**을 눌러 카카오톡 채팅창에 그대로 붙여넣기 하세요.")
+                
+                # 2. 비주얼 이미지 카드 생성 및 출력
+                sections_data = [
+                    {"title": "1. 사업장 진단 요약", "content": f"위치: {p_loc}\n업종: {p_ind}\n리스크: {p_risk}"},
+                    {"title": "2. 맞춤형 추천 솔루션", "content": p_sol},
+                    {"title": "3. 특별 혜택 및 안내", "content": f"혜택: {p_ben}\n설치 일정: 담당 플래너 협의 후 진행"}
+                ]
+                img_bytes = create_proposal_card_image(
+                    title=f"'{p_store}' 맞춤 위생 솔루션",
+                    subtitle=f"업종: {p_ind} | 상권: {p_loc}",
+                    sections=sections_data
+                )
+                
+                st.image(img_bytes, caption="모바일 전용 고해상도 제안서 이미지 카드 (1200x1600)", use_container_width=True)
+                st.download_button(
+                    label="📥 제안서 이미지 카드 다운로드 (.png)",
+                    data=img_bytes,
+                    file_name=f"CESCO_제안서_{p_store}.png",
+                    mime="image/png",
+                    use_container_width=True
+                )
 
     with proposal_tab2:
-        st.caption("특정 세스코 제품(예: 판테온, 센스미, 에어제닉 등)에 대해 고객 설득용으로 곧바로 출력할 수 있는 **1장 상세 제안서**를 생성합니다.")
+        st.caption("특정 세스코 제품(예: 판테온, 센스미, 에어제닉 등)에 대한 **1장 상세 제안서 텍스트와 비주얼 이미지 카드**를 동시에 생성합니다.")
         with st.form("product_onepager_form"):
             prod_name = st.text_input("제안할 세스코 제품명", placeholder="예: 세스코 공기살균기 센스미 / 에어제닉")
             prod_target = st.text_input("타겟 고객 업종", placeholder="예: 병원 대기실, 뷰티숍, 고급 음식점")
             prod_benefit = st.text_area("강조할 핵심 포인트 (스펙 및 장점)", placeholder="예: UV-C 파워 램프로 부유 바이러스 99.9% 살균, 슬림하고 세련된 디자인")
             
-            submitted_prod = st.form_submit_button("📄 제품 1장 상세 제안서 생성하기", use_container_width=True)
+            submitted_prod = st.form_submit_button("📄 제품 1장 상세 제안서 & 이미지 카드 생성하기", use_container_width=True)
             
         if submitted_prod:
             if not prod_name or not prod_target:
                 st.warning("제품명과 타겟 업종은 필수 입력 항목입니다.")
             else:
-                with st.spinner("전문 영업 비서가 고품격 1장 제품 제안서를 작성 중입니다..."):
+                with st.spinner("전문 영업 비서가 고품격 제품 제안서 텍스트와 이미지를 생성 중입니다..."):
                     prod_prompt = (
-                        f"세스코 영업사원이 고객({prod_target})에게 제시할 수 있는 **'단 1장으로 끝내는 제품 상세 제안서'**를 작성해 주세요.\n"
+                        f"세스코 영업사원이 고객({prod_target})에게 제시할 수 있는 **'단 1장으로 끝내는 제품 상세 제안서'**를 마크다운 형식으로 작성해 주세요.\n"
                         f"[작성 조건]\n"
                         f"1. 제안 제품명: {prod_name}\n"
                         f"2. 타겟 업종: {prod_target}\n"
@@ -803,14 +812,37 @@ if "GEMINI_API_KEY" in st.secrets:
                         f"   - 🛡️ [핵심 기술 스펙 & 차별점]\n"
                         f"   - 💼 [해당 업종 도입 시 기대 효과 (ROI)]\n"
                         f"   - 🎁 [3일 무상 체험 및 도입 안내]\n"
-                        f"5. 어조: 정중하고 격식 있는 전문 영업 비서의 존댓말 톤으로 작성할 것."
+                        f"5. 어조: 정중하고 격식 있는 영업 비서의 존댓말 톤."
                     )
                     chat_prod = client.chats.create(model="gemini-3-flash-preview")
                     prod_res = chat_prod.send_message(prod_prompt)
                     
                     st.success("✅ 제품 상세 제안서가 완성되었습니다!")
+                    
+                    # 1. 텍스트 마크다운 출력
                     st.markdown(prod_res.text)
                     st.code(prod_res.text, language="markdown")
+                    
+                    # 2. 비주얼 이미지 카드 생성 및 출력
+                    prod_sections = [
+                        {"title": "1. 제안 개요 및 도입 배경", "content": f"대상 업종: {prod_target}\n제안 제품: {prod_name}"},
+                        {"title": "2. 핵심 기술 스펙 & 차별점", "content": prod_benefit},
+                        {"title": "3. 3일 무상 체험 및 도입 안내", "content": "100% 본사 지원 3일 무상 체험 후 결정하세요."}
+                    ]
+                    prod_img_bytes = create_proposal_card_image(
+                        title=f"{prod_name} 맞춤 제안서",
+                        subtitle=f"타겟 업종: {prod_target}",
+                        sections=prod_sections
+                    )
+                    
+                    st.image(prod_img_bytes, caption="모바일 전용 고해상도 제품 제안서 이미지 카드 (1200x1600)", use_container_width=True)
+                    st.download_button(
+                        label="📥 제품 제안서 이미지 카드 다운로드 (.png)",
+                        data=prod_img_bytes,
+                        file_name=f"CESCO_제품제안서_{prod_name}.png",
+                        mime="image/png",
+                        use_container_width=True
+                    )
 
     # ==========================================
     # 📝 현장 영업일지 기록 (3일 체험 스케줄 자동 연동)
