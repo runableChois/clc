@@ -15,7 +15,7 @@ from google.genai import types
 # 1. 페이지 기본 설정 및 모바일 UI 최적화 CSS
 # ==========================================
 st.set_page_config(
-    page_title="세스코 플래너 Pro - 제품 학습 모드",
+    page_title="세스코 플래너 Pro - 통합 영업지원 시스템",
     page_icon="💼",
     layout="wide"
 )
@@ -68,7 +68,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 이미지 생성 엔진 (복원 - 유지)
+# 2. 이미지 생성 엔진 (유지 - 카톡 카드용)
 # ==========================================
 FONT_PATH = "NanumGothic-Bold.ttf"
 
@@ -143,11 +143,10 @@ def create_high_res_quote_card(card_data):
     return buf.getvalue()
 
 # ==========================================
-# 3. [핵심] 문서 학습 및 I/O 함수
+# 3. 데이터 I/O 및 학습 문서 처리 함수 (고도화)
 # ==========================================
-# 학습된 텍스트 데이터를 상시 보관할 파일 경로
+# 💡 [RAG] 학습 텍스트 저장 경로
 KNOWLEDGE_BASE_PATH = "cesco_knowledge_base.txt"
-# 학습된 파일의 원본 이름을 기억할 파일 경로
 KNOWLEDGE_NAME_PATH = "cesco_knowledge_name.txt"
 SALES_LOG_PATH = "sales_activity_log.csv"
 EQUIPMENT_LOG_PATH = "team_equipment_inventory.csv"
@@ -197,7 +196,7 @@ def process_uploaded_file(uploaded_file):
         # PDF 파일 처리 (고도화 - pypdf 활용)
         reader = PdfReader(uploaded_file)
         full_text = ""
-        # 💡 [고도화] 전체 페이지를 순회하며 텍스트 추출
+        # 💡 전체 페이지를 순회하며 텍스트 추출
         for idx, page in enumerate(reader.pages, start=1):
             text = page.extract_text()
             if text:
@@ -206,26 +205,68 @@ def process_uploaded_file(uploaded_file):
 
     return extracted_text, filename
 
-# 💡 [핵심] 앱 시작 시 학습 데이터를 메모리에 상시 로드
+# 💡 앱 시작 시 학습 데이터를 메모리에 상시 로드
 knowledge_context, learned_filename = load_knowledge_data()
 
+# 💡 [핵심 논리 수정] 영업일지 저장 시 Inventory Total을 직접 수정하지 않음 (이중 차감 방지)
+def save_sales_log(planner_name, client_name, proposed_deal, equipment_status, equipment_item, reaction, memo):
+    # 1. 영업일지 기록 (설치 장소/품목 추적)
+    new_data = pd.DataFrame([{
+        "작성일시": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "담당플래너": planner_name,
+        "고객/매장명": client_name,
+        "제안서비스/견적가": proposed_deal,
+        "체험장비설치": equipment_status,
+        "설치장비품목": equipment_item if equipment_status == "설치 완료" else "-",
+        "고객반응/상태": reaction,
+        "영업메모": memo
+    }])
+    if os.path.exists(SALES_LOG_PATH):
+        old_df = pd.read_csv(SALES_LOG_PATH)
+        if "담당팀원" in old_df.columns:
+            old_df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
+        df = pd.concat([old_df, new_data], ignore_index=True)
+    else:
+        df = new_data
+    df.to_csv(SALES_LOG_PATH, index=False, encoding="utf-8-sig")
+
+def load_equipment_inventory():
+    if os.path.exists(EQUIPMENT_LOG_PATH):
+        df = pd.read_csv(EQUIPMENT_LOG_PATH)
+        if "담당팀원" in df.columns:
+            df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
+        if "보유대수" in df.columns and "전체 보유대수" not in df.columns:
+            df.rename(columns={"보유대수": "전체 보유대수"}, inplace=True)
+        return df
+    default_df = pd.DataFrame([
+        {"담당플래너": "홍길동", "전체 보유대수": 5},
+        {"담당플래너": "김철수", "전체 보유대수": 3},
+        {"담당플래너": "이영희", "전체 보유대수": 4}
+    ])
+    default_df.to_csv(EQUIPMENT_LOG_PATH, index=False, encoding="utf-8-sig")
+    return default_df
+
+def save_equipment_inventory(df):
+    df.to_csv(EQUIPMENT_LOG_PATH, index=False, encoding="utf-8-sig")
+
 # ==========================================
-# 4. 사이드바 UI (관리자 학습 기능 추가)
+# 4. 사이드바 UI 및 AI 모드 프롬프트 고도화
 # ==========================================
 with st.sidebar:
     st.header("⚙️ 영업 모드 설정")
     
+    # 💡 [고도화] 상권 분석 전문가 모드 및 RAG 전용 모드 추가
     role_option = st.selectbox(
         "AI 영업 파트너 모드:",
-        ["견적 & 요금 비교 전문가 (학습 문서 기반)", "상권 분석 & 영업지 선정 전문가", "거절 대응 & 셀링포인트 안내", "자유 질문 모드"]
+        ["견적 & 요금 비교 전문가 (학습 문서 기반 Pro)", "상권 분석 & 영업지 선정 전문가 (BI Pro)", "거절 대응 & 셀링포인트 안내", "자유 질문 모드"]
     )
     
-    # 💡 [고도화] AI 프롬프트에 3단계 스스로 점검 로직 주입
-    if role_option == "견적 & 요금 비교 전문가 (학습 문서 기반)":
+    # 💡 [고도화 프롬프트] 각 모드별 프롬프트 논리 대폭 강화 (3-Step Self-Correction 및 외부 지식 활용)
+    if role_option == "견적 & 요금 비교 전문가 (학습 문서 기반 Pro)":
         base_instruction = (
             "당신은 영업 플래너를 보조하는 세스코 초정밀 견적 및 제품 안내 전문 컨설턴트입니다.\n"
             "[작성 논리 및 점검 수칙 (필수)]\n"
-            "1. 고객의 질문이나 사진(해충 식별 포함)을 분석하세요.\n"
+            "1. 고객의 질문이나 첨부된 사진(해충 식별 포함)을 분석하세요.\n"
             "2. 하단에 제공된 [업로드된 학습 문서 데이터] 안에서만 답변을 찾으세요. 절대로 없는 내용을 지어내지 마세요 (No Hallucination).\n"
             "3. 답변을 출력하기 전, 아래 3단계 스스로 점검(Self-Correction) 과정을 거치세요:\n"
             "   - 1단계 (유무 확인): 제안하려는 제품과 서비스가 실제 문서에 존재하는가?\n"
@@ -234,21 +275,27 @@ with st.sidebar:
             "4. 모바일 화면 가독성을 위해 인사말은 생략하고, 핵심 제안과 표, 불렛포인트로 간결하고 정확하게 답변하세요.\n"
             "5. 답변 본문에는 이미지를 첨부하지 마세요."
         )
-    elif role_option == "상권 분석 & 영업지 선정 전문가":
+    elif role_option == "상권 분석 & 영업지 선정 전문가 (BI Pro)":
         base_instruction = (
             "당신은 영업 플래너의 효과적인 영업 활동을 돕는 데이터 기반 상권 분석 전문가입니다.\n"
-            "플래너가 특정 지역이나 상권을 입력하면, 당신의 광범위한 외부 지식을 활용하여 해당 상권을 철저히 분석하세요.\n"
+            "플래너가 특정 지역이나 상권을 입력하면, 당신의 외부 지식과 Gemini Pro의 외부 지식 접근 기능을 활용하여 해당 상권을 철저히 분석하세요.\n"
             "[상권 분석 지침 (필수)]\n"
             "1. 업종 분포 분석: 해당 지역의 주요 포진 업종(예: 요식업, 오피스, 병원 등)과 그 특징을 분석하세요.\n"
             "2. 업종별 타겟 제품 제안: 요식업엔 방제+포충기, 오피스엔 공기살균기 등 상권 주요 업종에 최적화된 세스코 서비스를 추천하세요.\n"
             "3. 영업 전략 포인트 (데이터 기반 추정): 대략적인 매출 규모(추정치), 유동인구 특징, 최근 오픈 트렌드 등을 종합하여 '가장 계약 확률이 높은 영업 우선순위 장소'와 접근 전략을 3줄 이내로 핵심만 제안하세요.\n"
             "4. 장황한 설명 대신 인포그래픽형 텍스트와 불렛포인트로 간결하게 출력하세요."
         )
+    elif role_option == "거절 대응 & 셀링포인트 안내":
+        base_instruction = (
+            "당신은 베테랑 영업 멘토입니다.\n"
+            "플래너가 고객의 거절 반응을 입력하면, 이를 뒤집을 수 있는 강력한 반박 논리와 세스코만의 차별점을 3줄 이내로 핵심만 알려주세요.\n"
+            "타사 대비 강점을 명확히 짚어주세요."
+        )
     else:
         base_instruction = "당신은 유능하고 친절한 AI 영업 보조입니다. 답변은 간결하게 작성하세요."
 
     st.divider()
-    # 💡 [핵심] 현재 어떤 문서를 학습하고 있는지 상태 표시
+    # 💡 현재 어떤 문서를 학습하고 있는지 상태 표시
     st.subheader("📚 현재 AI 학습 문서 상태")
     if learned_filename:
         st.success(f"**학습 완료:** `{learned_filename}`")
@@ -264,20 +311,123 @@ with st.sidebar:
         st.success("🔓 관리자 권한 활성화됨")
         
         # 관리자 기능을 탭으로 정리
-        admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📊 영업 대시보드", "📦 체험장비 관리", "📁 **AI 문서 학습(PDF)**"])
+        admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📊 영업 대시보드", "📦 체험장비 운용/할당 설정", "📁 **AI 문서 학습(PDF)**"])
         
-        with admin_tab1: st.write("실시간 대시보드 (유지)") # (대시보드 코드는 기존과 동일하므로 생략)
-        with admin_tab2: st.write("체험장비 관리 (유지)") # (체험장비 코드는 기존과 동일하므로 생략)
+        # 📊 [1. 대시보드 탭] - 실시간 재고 계산 logic
+        with admin_tab1:
+            st.write("📈 **실시간 영업 성과 대시보드**")
+            
+            if os.path.exists(SALES_LOG_PATH):
+                logs_df = pd.read_csv(SALES_LOG_PATH)
+                if "담당팀원" in logs_df.columns and "담당플래너" not in logs_df.columns:
+                    logs_df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
+                if "설치장비품목" not in logs_df.columns:
+                    logs_df["설치장비품목"] = "-"
+                
+                inv_df = load_equipment_inventory()
+                
+                # [💡 수중 보유대수 실시간 계산 logic]
+                # 1. 영업일지에서 '설치 완료'된 건만 추출하여 플래너별 개수 집계
+                installed_counts = logs_df[logs_df["체험장비설치"] == "설치 완료"]["담당플래너"].value_counts().reset_index()
+                installed_counts.columns = ["담당플래너", "설치대수"]
+                
+                # 2. 전체보유 현황(Total)과 설치 대수를 병합
+                merged_inv = pd.merge(inv_df, installed_counts, on="담당플래너", how="left").fillna(0)
+                merged_inv["설치대수"] = merged_inv["설치대수"].astype(int)
+                
+                # 3. [💡 핵심 수식] 현재 수중 보유대수 = 전체 보유대수(할당량) - 설치대수
+                merged_inv["현재 수중 보유대수"] = merged_inv["전체 보유대수"] - merged_inv["설치대수"]
+                merged_inv["설치활동률(%)"] = (merged_inv["설치대수"] / merged_inv["전체 보유대수"] * 100).round(1)
+                
+                st.subheader("1️⃣ 플래너별 체험장비 보유 및 설치 현황")
+                st.dataframe(merged_inv[["담당플래너", "전체 보유대수", "설치대수", "현재 수중 보유대수", "설치활동률(%)"]], use_container_width=True)
+                
+                chart_data = merged_inv.set_index("담당플래너")[["전체 보유대수", "설치대수", "현재 수중 보유대수"]]
+                st.bar_chart(chart_data)
+                
+                st.divider()
+                st.subheader("2️⃣ 체험장비 설치 후 계약 성사율 분석")
+                
+                installed_group = logs_df[logs_df["체험장비설치"] == "설치 완료"]
+                non_installed_group = logs_df[logs_df["체험장비설치"] != "설치 완료"]
+                
+                total_installed = len(installed_group)
+                installed_success = len(installed_group[installed_group["고객반응/상태"].str.contains("계약 완료", na=False)])
+                installed_rate = (installed_success / total_installed * 100) if total_installed > 0 else 0.0
+                
+                total_non = len(non_installed_group)
+                non_success = len(non_installed_group[non_installed_group["고객반응/상태"].str.contains("계약 완료", na=False)])
+                non_rate = (non_success / total_non * 100) if total_non > 0 else 0.0
+                
+                m_col1, m_col2 = st.columns(2)
+                with m_col1:
+                    st.metric(label="🎁 체험장비 설치 후 계약 성사율", value=f"{installed_rate:.1f}%", delta=f"{installed_success}건 성공 / 총 {total_installed}건")
+                with m_col2:
+                    st.metric(label="❌ 미설치건 계약 성사율", value=f"{non_rate:.1f}%", delta=f"{non_success}건 성공 / 총 {total_non}건")
+                    
+                st.divider()
+                st.subheader("3️⃣ 인기 제안 상품 & 서비스 순위")
+                product_counts = logs_df["제안서비스/견적가"].value_counts().head(5)
+                st.bar_chart(product_counts)
+                
+                st.divider()
+                st.write("📋 **전체 영업일지 데이터 대장:**")
+                st.dataframe(logs_df, use_container_width=True)
+                
+                logs_csv = logs_df.to_csv(index=False, encoding="utf-8-sig")
+                st.download_button(
+                    label="📥 영업일지 전체 다운로드 (.csv)",
+                    data=logs_csv,
+                    file_name="팀_영업활동기록대장.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
+            else:
+                st.info("영업일지 데이터가 쌓이면 실시간 분석 대시보드가 표시됩니다.")
 
-        # 💡 [핵심탭] 📁 AI 문서 학습(PDF)
+        # 📦 [2. 체험장비 운용 내역 & 재고 설정 탭] - 상세 목록 및 할당 설정
+        with admin_tab2:
+            st.write("📦 **체험장비 보유 대수 & 설치 장소/내역 종합 관리**")
+            
+            # A. 설치 장소 및 상세 내역 대장
+            st.subheader("📍 1. 체험장비 실제 설치 매장/장소 상세 내역")
+            if os.path.exists(SALES_LOG_PATH):
+                logs_df = pd.read_csv(SALES_LOG_PATH)
+                if "담당팀원" in logs_df.columns and "담당플래너" not in logs_df.columns:
+                    logs_df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
+                if "설치장비품목" not in logs_df.columns:
+                    logs_df["설치장비품목"] = "-"
+                
+                installed_logs = logs_df[logs_df["체험장비설치"] == "설치 완료"]
+                
+                if len(installed_logs) > 0:
+                    display_cols = ["작성일시", "담당플래너", "고객/매장명", "설치장비품목", "고객반응/상태", "영업메모"]
+                    st.dataframe(installed_logs[display_cols], use_container_width=True)
+                else:
+                    st.info("현재 현장에 설치된 체험장비 내역이 없습니다.")
+            else:
+                st.info("기록된 영업일지가 없습니다.")
+                
+            st.divider()
+            
+            # B. 플래너 보유 대수 관리 (Total 할당량 설정)
+            st.subheader("⚙️ 2. 플래너별 체험장비 전체 할당 대수(Total) 수정")
+            st.caption("플래너가 본사로부터 처음에 받은 전체 할당 대수(Total)를 직접 설정 및 수정하는 화면입니다.")
+            current_inv = load_equipment_inventory()
+            
+            edited_df = st.data_editor(current_inv, num_rows="dynamic", use_container_width=True)
+            if st.button("💾 전체 보유대수 수정사항 저장", use_container_width=True):
+                save_equipment_inventory(edited_df)
+                st.toast("✅ 플래너별 체험장비 전체 할당 대수가 업데이트되었습니다!", icon="🎉")
+                st.rerun()
+
+        # 📁 [3. **AI 문서 학습(PDF)** 탭] - 💡 [RAG 핵심 탭]
         with admin_tab3:
             st.subheader("📁 제품 정보 및 단가표 문서(PDF) 학습시키기")
             st.caption("PDF, 엑셀, CSV 파일을 업로드하면 AI가 분석하여 답변 시 최우선으로 참조합니다.")
             
-            # 파일 업로더
             new_file = st.file_uploader("새 제품 문서 업로드", type=["pdf", "xlsx", "csv"])
             
-            # 학습 버튼
             if new_file and st.button("💾 이 문서를 AI에게 학습시키기", use_container_width=True):
                 try:
                     with st.spinner("AI가 문서를 정밀 분석 및 학습 중입니다. 잠시만 기다려주세요..."):
@@ -292,7 +442,6 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"⚠️ 문서 처리 중 오류 발생: {e}")
                     
-            # 삭제 버튼
             if learned_filename and st.button("🗑️ 등록된 학습 데이터 삭제", use_container_width=True, type="secondary"):
                 delete_knowledge_data()
                 st.toast("등록된 학습 데이터 삭제 완료!", icon="🧹")
@@ -320,40 +469,86 @@ else:
 
 st.divider()
 
-# (챗봇 인터페이스 코드는 기존과 동일하므로 생략, 💡[핵심] Gemini 전송 로직만 수정)
-# ... (메시지 표시 및 입력 코드 동일) ...
+if "GEMINI_API_KEY" in st.secrets:
+    api_key = st.secrets["GEMINI_API_KEY"].strip()
+    client = genai.Client(api_key=api_key)
 
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+    selected_faq = None
+    st.write("💡 **퀵 메뉴 (현재 모드 기반):**")
+    col1, col2, col3 = st.columns(3)
+    
+    # 💡 [고도화] 모드에 따라 퀵 메뉴 버튼 변경
+    if role_option == "상권 분석 & 영업지 선정 전문가 (BI Pro)":
+        with col1:
+            if st.button("📌 강남역 인근 카페 상권 분석", use_container_width=True):
+                selected_faq = "강남역 인근 카페 골목 상권의 현재 특징, 업종 분포, 그리고 최적의 세스코 영업지 장소 전략을 알려줘."
+        with col2:
+            if st.button("📌 성수동 카페거리 분석", use_container_width=True):
+                selected_faq = "성수동 카페거리 상권의 특징, 최근 유동인구 특징, 그리고 제안할 핵심 서비스 3가지를 정리해줘."
+        with col3:
+            if st.button("📌 여의도 오피스 상권 분석", use_container_width=True):
+                selected_faq = "여의도 오피스 상권의 분포特点, 주요 계약 업종, 그리고 바이러스케어 제안 전략을 알려줘."
+    else:
+        with col1:
+            if st.button("🔍 15평 매장 단독/결합가 비교", use_container_width=True):
+                selected_faq = "15평 매장 기준 단독가, 결합가, 프로모션가를 핵심만 간결하게 표로 비교해줘. (3-Step 스스로 점검할 것)"
+        with col2:
+            if st.button("🛡️ 타사 대비 핵심 강점 보기", use_container_width=True):
+                selected_faq = "타사 대비 세스코 핵심 차별점 3가지를 짧고 강력하게 정리해줘."
+        with col3:
+            if st.button("🎁 이번 달 프로모션 혜택", use_container_width=True):
+                selected_faq = "이번 달 프로모션 할인 혜택과 주요 단가를 간결하게 보여줘."
+
+    st.write("---")
+    
+    # 📸 [고도화] 이미지 진단 프롬프트 강화
+    with st.expander("📸 **현장 해충/매장 사진 AI 진단 및 제품 추천**"):
+        uploaded_img = st.file_uploader("현장 스마트폰 사진을 첨부하세요. AI가 식별 및 견적을 3번 점검합니다.", type=["jpg", "jpeg", "png"])
+        if uploaded_img:
+            st.image(uploaded_img, caption="첨부된 사진 진단 중...", width=200)
+
+    # user_prompt = selected_faq if selected_faq else prompt_input # This logic needs prompt_input to exist first
+
+    # 💡 [문제 해결] 들여쓰기 에러 해결완료. st.expander 블록 밖, main level로 위치시켰습니다.
     prompt_input = st.chat_input("질문을 입력하세요... (예: 사진 속 해충 뭐고 얼마야? 또는 성수동 상권 알려줘)")
-    # (유저 프롬프트 처리 코드 동일) ...
+    
+    user_prompt = selected_faq if selected_faq else prompt_input
 
     if user_prompt:
         st.chat_message("user").markdown(user_prompt)
         st.session_state.messages.append({"role": "user", "content": user_prompt})
 
-        # ... (히스토리 구성 코드 동일) ...
+        history = []
+        for msg in st.session_state.messages[:-1]:
+            role = "user" if msg["role"] == "user" else "model"
+            history.append({"role": role, "parts": [{"text": msg["content"]}]})
 
         # API 호출 전 시스템 프롬프트 확정 (💡 고도화 로직 주입)
         final_system_instruction = base_instruction
         
-        # 💡 [핵심] 학습된 문서 데이터가 있다면, AI 프롬프트 하단에 '학습 내용'으로 주입
-        if role_option == "견적 & 요금 비교 전문가 (학습 문서 기반)" and knowledge_context:
+        # 💡 [RAG 핵심] 학습된 문서 데이터가 있다면, AI 프롬프트 하단에 '학습 내용'으로 주입
+        if role_option == "견적 & 요금 비교 전문가 (학습 문서 기반 Pro)" and knowledge_context:
             final_system_instruction += (
                 f"\n\n[업로드된 학습 문서 데이터 ({learned_filename})]\n"
                 "가장 중요한 정보입니다. 답변 시 반드시 이 내용 안에서만 찾고 3번 점검하세요:\n\n"
                 f"{knowledge_context}"
             )
-            
-        # 📸 [멀티모달 이미지 진단 프롬프트] (유지)
-        if uploaded_img:
+        elif role_option == "상권 분석 & 영업지 선정 전문가 (BI Pro)":
             final_system_instruction += (
-                "\n\n[사진 진단 모드]\n"
-                "사용자가 첨부한 현장 사진을 보고 어떤 해충인지 식별하거나, 매장/주방의 위생 상태를 진단하세요. "
-                "진단 내용을 바탕으로 [업로드된 학습 문서 데이터]에서 적합한 서비스를 추천하고 정확한 가격을 안내하세요."
+                "\n\n[상권 분석 전문가 가이드]\n"
+                "분석 요청한 지역에 대한 업종 분포, 특징, 최적 영업 전략을 '추정 데이터'임을 밝히고 핵심만 제안하세요."
             )
 
         with st.chat_message("assistant"):
             try:
-                # 💡 [핵심] 고도화된 프롬프트를 처리하기 위해 Gemini 1.5 Pro 모델 사용
+                # 💡 [고도화] 최신 Gemini 1.5 Pro 모델 사용으로 처리 능력 극대화
                 chat = client.chats.create(
                     model="gemini-1.5-pro-latest", 
                     config=types.GenerateContentConfig(
@@ -362,13 +557,125 @@ st.divider()
                     history=history
                 )
                 
-                # ... (이미지 및 텍스트 전송 로직 동일) ...
-                # ... (스트리밍 답변 출력 및 리런 코드 동일) ...
+                # 📸 [멀티모달 전송] 이미지가 첨부된 경우 텍스트와 함께 전송
+                if uploaded_img:
+                    # Pillow 라이브러리로 이미지 열기
+                    from PIL import Image as PILImage
+                    img_obj = PILImage.open(uploaded_img)
+                    send_contents = [user_prompt, img_obj]
+                else:
+                    send_contents = user_prompt
 
-# ==========================================
-# 📱 [300자 제한] 카톡 요약문 & 카드 생성 (복원된 기능 유지)
-# ==========================================
-# ... (기존 7일차 이미지 카드 생성 코드 동일) ...
+                response_stream = chat.send_message_stream(send_contents)
+                
+                def stream_generator():
+                    for chunk in response_stream:
+                        yield chunk.text
 
-# 📝 현장 영업일지 기록 (유지)
-# ... (기존 동적 재고 관리 포함된 영업일지 코드 동일) ...
+                full_response = st.write_stream(stream_generator())
+                st.session_state.messages.append({"role": "assistant", "content": full_response})
+                st.rerun()
+            except Exception as e:
+                st.error(f"⚠️ 답변 생성 실패: {e}")
+
+    # ==========================================
+    # 📱 [300자 제한] 카톡 요약문 & 카드 생성 (복원된 기능 유지)
+    # ==========================================
+    st.write("---")
+    if len(st.session_state.messages) > 0 and role_option != "상권 분석 & 영업지 선정 전문가 (BI Pro)":
+        if st.button("📱 **간결한 카톡 제안서 & 카드 이미지 생성**", use_container_width=True):
+            with st.spinner("300자 이내 카톡 메시지 및 초고해상도 카드 제작 중..."):
+                try:
+                    recent_chat = st.session_state.messages[-1]["content"]
+                    
+                    # 💡 [고도화 프롬프트 추가] 3-Step 점검 결과를 카톡 요약에도 반영하도록 요청
+                    summary_prompt = (
+                        f"다음 견적 상담 내용을 바탕으로 고객에게 카카오톡으로 전달할 "
+                        f"친절하고 정중한 요약 메시지를 작성해 줘.\n"
+                        f"[작성 조건]\n"
+                        f"1. 전체 글자 수는 공백 포함 **최대 300자 이내**로 매우 간결하게 작성할 것.\n"
+                        f"2. 인사말은 1줄로 최소화하고 [매장명/추천서비스/월단가/주요혜택]만 불렛포인트로 명확히 적을 것.\n"
+                        f"3. 한눈에 읽기 쉬운 카톡 전송용으로 만들 것.\n"
+                        f"4. AI가 스스로 3번 점검한 정확한 제품명과 가격이어야 함.\n\n"
+                        f"견적 내용:\n{recent_chat}"
+                    )
+                    # 요약은 속도가 빠른 Flash 모델 사용
+                    chat = client.chats.create(model="gemini-3-flash-preview")
+                    text_res = chat.send_message(summary_prompt)
+                    
+                    st.subheader("📱 **1. 카톡/문자 전송용 간결 메시지 (복사용)**")
+                    st.code(text_res.text, language="text")
+                    
+                    # 2. 이미지 카드용 JSON 데이터 구조화 파싱 (유지)
+                    json_prompt = (
+                        f"다음 견적 내용에서 핵심 서비스와 요금 정보를 추출하여 오직 JSON 형식으로만 응답해 줘.\n"
+                        f"JSON 구조 예시:\n"
+                        f"{{\n"
+                        f'  "title": "15평 매장 맞춤 위생 솔루션 견적",\n'
+                        f'  "subtitle": "해충방제 + 위생케어 결합 할인 적용가",\n'
+                        f'  "items": [\n'
+                        f'    {{"name": "보일러/유충 방제", "price": "45,000원/월", "note": "월 1회 방문 점검"}},\n'
+                        f'    {{"name": "바이러스케어", "price": "30,000원/월", "note": "방제 결합 할인가"}}\n'
+                        f'  ],\n'
+                        f'  "promotion": "초기 설치비 면제 혜택"\n'
+                        f"}}\n\n"
+                        f"견적 내용:\n{recent_chat}"
+                    )
+                    json_res = chat.send_message(json_prompt)
+                    
+                    # JSON 파싱 및 예외 처리
+                    json_match = re.search(r'\{.*\}', json_res.text, re.DOTALL)
+                    if json_match:
+                        card_data = json.loads(json_match.group())
+                    else:
+                        card_data = {
+                            "title": "세스코 맞춤 솔루션 견적",
+                            "subtitle": "공식 단가 기준 안내",
+                            "items": [{"name": "맞춤 위생 서비스", "price": "상담가", "note": "상세 문의"}],
+                            "promotion": "프로모션 및 결합 할인 조건 적용 가능"
+                        }
+                    
+                    # 3. 레이아웃이 잡힌 고해상도 완제품 카드 이미지 생성 및 출력 (유지)
+                    st.subheader("🖼️ **2. 카톡 전송용 완성형 그래픽 견적 카드**")
+                    card_img_bytes = create_high_res_quote_card(card_data)
+                    
+                    st.image(card_img_bytes, caption="모바일 전용 초고해상도 견적 카드 (1200x1600)", use_container_width=True)
+                    
+                    st.download_button(
+                        label="📥 **고해상도 견적 카드 다운로드 (.png)**",
+                        data=card_img_bytes,
+                        file_name="CES코_고해상도_견적카드.png",
+                        mime="image/png",
+                        use_container_width=True
+                    )
+                except Exception as img_err:
+                    st.error(f"⚠️ 카드 이미지 생성 중 오류가 발생했습니다: {img_err}")
+
+    # ==========================================
+    # 📝 현장 영업일지 기록 (유지)
+    # ==========================================
+    with st.expander("📝 **플래너 현장 영업 미팅 일지 기록하기**"):
+        st.caption("오늘 방문한 매장/고객과의 상담 내역을 기록하면 전체 영업 대장에 저장되고 재고가 반영됩니다.")
+        with st.form("sales_log_form", clear_on_submit=True):
+            col_a, col_b = st.columns(2)
+            with col_a:
+                m_name = st.text_input("담당 플래너 이름 * (예: 홍길동)")
+                c_name = st.text_input("방문 매장/고객명 * (예: 대박식당)")
+                p_deal = st.text_input("제안 서비스 및 견적가 (예: 방제+바이러스 결합 월 65,000원)")
+            with col_b:
+                eq_status = st.selectbox("🎁 체험장비 설치 여부", ["미설치", "설치 완료"])
+                eq_item = st.text_input("설치한 체험장비 품목 (예: 공기살균기 B타입, 포충기 등)")
+                reaction = st.selectbox("고객 반응/상태", ["계약 완료 🎉", "긍정적 (계약 임박)", "검토 중 (재방문 필요)", "보류 (가격 부담)"])
+                memo = st.text_input("영업 메모 (예: 다음 주 화요일에 사장님 재방문 예정)")
+                
+            submit_log = st.form_submit_button("💾 영업일지 저장 및 대시보드 반영하기", use_container_width=True)
+            if submit_log:
+                if m_name and c_name:
+                    with st.spinner("영업일지 저장 중..."):
+                        save_sales_log(m_name, c_name, p_deal, eq_status, eq_item, reaction, memo)
+                        st.toast("✅ 영업일지 저장 완료!", icon="🎉")
+                        st.rerun()
+                else:
+                    st.warning("⚠️ 필수 항목(플래너 이름, 고객명)을 입력해 주세요.")
+else:
+    st.error("⚠️ Streamlit Cloud Secrets에 GEMINI_API_KEY가 설정되지 않았습니다.")
