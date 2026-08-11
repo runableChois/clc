@@ -220,14 +220,12 @@ def create_high_res_quote_card(card_data):
     except Exception:
         font_brand = font_subhead = font_title = font_item_name = font_price = font_regular = font_small = ImageFont.load_default()
 
-    # 상단 헤더 영역
     draw.rectangle([(0, 0), (width, 200)], fill='#003b7a')
     draw.rectangle([(0, 190), (width, 200)], fill='#00a3e0') 
     
     draw.text((60, 45), "💎 CESCO 맞춤 솔루션 견적서", fill='#ffffff', font=font_brand)
     draw.text((60, 125), "세스코 공식 문서 기반 | 현장 맞춤 케어 제안", fill='#dbeafe', font=font_subhead)
 
-    # 견적 제목 영역
     draw.rectangle([(50, 240), (width - 50, 370)], fill='#ffffff', outline='#cbd5e1', width=2)
     title_text = card_data.get("title", "맞춤 위생 솔루션 견적")
     draw.text((80, 268), title_text[:30], fill='#0f172a', font=font_title)
@@ -235,7 +233,6 @@ def create_high_res_quote_card(card_data):
     subtitle_text = card_data.get("subtitle", "공식 문서 데이터 기준")
     draw.text((80, 320), subtitle_text[:40], fill='#64748b', font=font_regular)
 
-    # 서비스 항목 카드 출력
     items = card_data.get("items", [])
     y_offset = 400
     for item in items[:4]:
@@ -254,14 +251,12 @@ def create_high_res_quote_card(card_data):
         
         y_offset += 160
 
-    # 프로모션 배너
     promo_text = card_data.get("promotion", "")
     if promo_text:
         draw.rectangle([(50, y_offset + 10), (width - 50, y_offset + 180)], fill='#e0f2fe', outline='#0284c7', width=2)
         draw.text((80, y_offset + 35), "🎁 특별 프로모션 & 결합 혜택", fill='#0369a1', font=font_title)
         draw.text((80, y_offset + 105), promo_text[:45], fill='#0f172a', font=font_regular)
 
-    # 하단 푸터
     draw.rectangle([(0, height - 130), (width, height)], fill='#0f172a')
     draw.text((60, height - 95), "📞 서비스 문의 및 신청: 세스코 담당 플래너", fill='#ffffff', font=font_regular)
     
@@ -342,7 +337,6 @@ def save_sales_log(planner_name, client_name, proposed_deal, equipment_status, e
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     today_date_str = install_date if install_date else datetime.now().strftime("%Y-%m-%d")
     
-    # 체험장비 설치 시 D+3 피드백 예정일 자동 산정
     feedback_due = "-"
     if equipment_status == "설치 완료":
         try:
@@ -551,7 +545,6 @@ with st.sidebar:
     else:
         st.caption("관리자만 영업 대시보드 및 AI 누적 문서 학습 관리가 가능합니다.")
 
-    # 대화내용 초기화 버튼
     st.divider()
     if st.button("🔄 대화 내용 초기화", use_container_width=True):
         st.session_state["messages"] = []
@@ -626,7 +619,7 @@ if "GEMINI_API_KEY" in st.secrets:
     
     # 현장 사진 멀티모달 진단 + 1페이지 브리핑 리포트
     with st.expander("📸 **현장 사진 AI 진단 & 1페이지 영업 브리핑 리포트 생성**"):
-        uploaded_img = st.file_uploader("현장 사진(매장, 주방, 화장실, 외관 등)을 첨부하시면 AI가 시각 요소를 분석하여 8대 제품 중 맞춤 제안 리포트를 생성해 드립니다.", type=["jpg", "jpeg", "png"])
+        uploaded_img = st.file_uploader("현장 사진(매장, 주방, 화장실, 외관 등)을 첨부하시면 AI가 시각 요소를 분석하여 8대 제품 중 맞춤 제안 리포트를 생성해 드립니다.", type=["jpg", "jpeg", "png"], key="uploaded_file")
         if uploaded_img:
             st.image(uploaded_img, caption="첨부된 현장 사진 진단 준비 완료", width=250)
 
@@ -641,7 +634,8 @@ if "GEMINI_API_KEY" in st.secrets:
     else:
         user_prompt = prompt_input
 
-    if user_prompt:
+    # 🔥 [핵심 해결] 이전 질문과 완전히 동일하지 않은 신규 입력일 때만 실행하여 무한 루프 차단
+    if user_prompt and (len(st.session_state.messages) == 0 or st.session_state.messages[-1]["content"] != user_prompt):
         st.chat_message("user").markdown(user_prompt)
         st.session_state.messages.append({"role": "user", "content": user_prompt})
 
@@ -718,7 +712,7 @@ if "GEMINI_API_KEY" in st.secrets:
 
                 full_response = st.write_stream(stream_generator())
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
-                st.rerun()
+                # 🔥 [핵심 해결] 무한 반복을 일으키던 st.rerun() 제거!
             except Exception as e:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
@@ -826,4 +820,4 @@ if "GEMINI_API_KEY" in st.secrets:
                 else:
                     st.warning("⚠️ 필수 항목(플래너 이름, 고객명)을 입력해 주세요.")
 else:
-    st.error("⚠️ Streamlit Cloud Secrets에 GEMINI_API_KEY가 설정되지 않았습니 다.")
+    st.error("⚠️ Streamlit Cloud Secrets에 GEMINI_API_KEY가 설정되지 않았습니다.")
