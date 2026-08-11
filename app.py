@@ -11,7 +11,7 @@ from google import genai
 from google.genai import types
 
 # ==========================================
-# 1. 페이지 기본 설정 및 커스텀 CSS
+# 1. 페이지 기본 설정 및 모바일 반응형 CSS
 # ==========================================
 st.set_page_config(
     page_title="영업팀 전용 AI 단가 & 견적 지원 시스템",
@@ -19,28 +19,53 @@ st.set_page_config(
     layout="wide"
 )
 
+# 모바일 화면 비율 및 가독성 최적화 CSS
 st.markdown("""
 <style>
-    .main { padding: 1.5rem 2rem; }
+    /* 기본 여백 조정 */
+    .main .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 2rem !important;
+    }
+    
+    /* 모바일 반응형 미디어 쿼리 (스마트폰 화면 맞춤) */
+    @media (max-width: 768px) {
+        .main .block-container {
+            padding-left: 0.8rem !important;
+            padding-right: 0.8rem !important;
+        }
+        h1 {
+            font-size: 1.5rem !important;
+        }
+        div[data-testid="stMarkdownContainer"] table {
+            font-size: 12.5px !important;
+        }
+        div[data-testid="stMarkdownContainer"] th, 
+        div[data-testid="stMarkdownContainer"] td {
+            padding: 8px 6px !important;
+        }
+    }
+    
+    /* 마크다운 표 기본 디자인 커스텀 */
     div[data-testid="stMarkdownContainer"] table {
         width: 100% !important;
         border-collapse: collapse !important;
-        margin: 1rem 0 !important;
-        font-size: 14.5px !important;
+        margin: 0.8rem 0 !important;
+        font-size: 14px;
         border-radius: 8px !important;
         overflow: hidden !important;
         box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important;
     }
     div[data-testid="stMarkdownContainer"] th {
-        background-color: #0f172a !important;
+        background-color: #003b7a !important;
         color: #ffffff !important;
         font-weight: 600 !important;
-        padding: 12px 16px !important;
-        border: 1px solid #1e293b !important;
+        padding: 10px 12px !important;
+        border: 1px solid #002d5e !important;
         text-align: center !important;
     }
     div[data-testid="stMarkdownContainer"] td {
-        padding: 11px 16px !important;
+        padding: 10px 12px !important;
         border: 1px solid #e2e8f0 !important;
         vertical-align: middle !important;
     }
@@ -51,7 +76,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 완성형 모바일 견적 카드 그래픽 생성 엔진
+# 2. 초고해상도(1200x1600) 완성형 그래픽 카드 엔진
 # ==========================================
 FONT_PATH = "NanumGothic-Bold.ttf"
 
@@ -64,66 +89,75 @@ def ensure_korean_font():
         except Exception as e:
             st.error(f"폰트 다운로드 실패: {e}")
 
-def create_structured_quote_card(card_data):
-    """구조화된 견적 데이터를 바탕으로 레이아웃이 잡힌 완제품 카드 이미지 생성"""
+def create_high_res_quote_card(card_data):
+    """모바일용 1200x1600 초고해상도 완제품 이미지 카드 생성"""
     ensure_korean_font()
     
-    width, height = 750, 950
-    img = Image.new('RGB', (width, height), color='#f4f6f9')
+    # 2배 향상된 고해상도 캔버스 (1200 x 1600)
+    width, height = 1200, 1600
+    img = Image.new('RGB', (width, height), color='#f1f5f9')
     draw = ImageDraw.Draw(img)
     
-    # 폰트 로드
+    # 폰트 사이즈 스케일업 (고해상도용)
     try:
-        font_header = ImageFont.truetype(FONT_PATH, 28)
-        font_title = ImageFont.truetype(FONT_PATH, 20)
-        font_price = ImageFont.truetype(FONT_PATH, 21)
-        font_regular = ImageFont.truetype(FONT_PATH, 15)
-        font_small = ImageFont.truetype(FONT_PATH, 13)
+        font_brand = ImageFont.truetype(FONT_PATH, 48)
+        font_subhead = ImageFont.truetype(FONT_PATH, 24)
+        font_title = ImageFont.truetype(FONT_PATH, 34)
+        font_item_name = ImageFont.truetype(FONT_PATH, 30)
+        font_price = ImageFont.truetype(FONT_PATH, 36)
+        font_regular = ImageFont.truetype(FONT_PATH, 24)
+        font_small = ImageFont.truetype(FONT_PATH, 20)
     except:
-        font_header = font_title = font_price = font_regular = font_small = ImageFont.load_default()
+        font_brand = font_subhead = font_title = font_item_name = font_price = font_regular = font_small = ImageFont.load_default()
 
-    # 1. 상단 브랜드 헤더 (CESCO Blue)
-    draw.rectangle([(0, 0), (width, 115)], fill='#004b9a')
-    draw.text((35, 25), "💎 CESCO 맞춤 솔루션 견적서", fill='#ffffff', font=font_header)
-    draw.text((35, 75), "세스코 공식 단가 기준 맞춤 솔루션 제안", fill='#cce3f7', font=font_regular)
-
-    # 2. 견적 대상 타이틀 박스
-    draw.rectangle([(30, 135), (width - 30, 210)], fill='#ffffff', outline='#cbd5e1', width=1)
-    title_text = card_data.get("title", "맞춤 위생 솔루션 견적")
-    draw.text((50, 152), title_text[:32], fill='#0f172a', font=font_title)
+    # 1. 상단 브랜드 메인 헤더 (CESCO Blue & Gold Accent)
+    draw.rectangle([(0, 0), (width, 200)], fill='#003b7a')
+    draw.rectangle([(0, 190), (width, 200)], fill='#00a3e0') # 포인트 라인
     
-    subtitle_text = card_data.get("subtitle", "공식 결합 할인 및 프로모션 적용가")
-    draw.text((50, 182), subtitle_text[:42], fill='#64748b', font=font_small)
+    draw.text((60, 45), "💎 CESCO 맞춤 솔루션 견적서", fill='#ffffff', font=font_brand)
+    draw.text((60, 125), "세스코 공식 단가 기준 | 현장 맞춤 위생 케어 제안", fill='#dbeafe', font=font_subhead)
 
-    # 3. 품목별 요금 카드 리스트 (최대 4개)
+    # 2. 견적 대상 타이틀 정보 카드
+    draw.rectangle([(50, 240), (width - 50, 370)], fill='#ffffff', outline='#cbd5e1', width=2)
+    
+    title_text = card_data.get("title", "맞춤 위생 솔루션 견적")
+    draw.text((80, 268), title_text[:30], fill='#0f172a', font=font_title)
+    
+    subtitle_text = card_data.get("subtitle", "공식 결합 할인 및 프로모션 혜택 적용")
+    draw.text((80, 320), subtitle_text[:40], fill='#64748b', font=font_regular)
+
+    # 3. 품목별 견적 카드 리스트 (최대 4개)
     items = card_data.get("items", [])
-    y_offset = 230
+    y_offset = 400
     for item in items[:4]:
-        draw.rectangle([(30, y_offset), (width - 30, y_offset + 85)], fill='#ffffff', outline='#e2e8f0', width=1)
+        # 인포그래픽 흰색 카드 박스
+        draw.rectangle([(50, y_offset), (width - 50, y_offset + 140)], fill='#ffffff', outline='#e2e8f0', width=2)
         
         name = item.get("name", "서비스 항목")
         note = item.get("note", "")
-        price = item.get("price", "문의")
+        price = item.get("price", "상담가")
 
-        draw.text((50, y_offset + 18), name[:22], fill='#0f172a', font=font_title)
+        draw.text((80, y_offset + 30), name[:20], fill='#0f172a', font=font_item_name)
         if note:
-            draw.text((50, y_offset + 48), note[:30], fill='#64748b', font=font_small)
+            draw.text((80, y_offset + 80), note[:28], fill='#64748b', font=font_small)
 
-        # 가격 우측 강조 표시
-        draw.text((width - 210, y_offset + 28), price, fill='#0052cc', font=font_price)
-        y_offset += 98
+        # 가격 오른쪽 배치 (우측 정렬 및 파란색 강조)
+        draw.rectangle([(width - 380, y_offset + 30), (width - 80, y_offset + 110)], fill='#eff6ff', outline='#bfdbfe', width=1)
+        draw.text((width - 360, y_offset + 48), price, fill='#003b7a', font=font_price)
+        
+        y_offset += 160
 
-    # 4. 프로모션 혜택 하이라이트 박스
+    # 4. 특별 프로모션 하이라이트 박스
     promo_text = card_data.get("promotion", "")
     if promo_text:
-        draw.rectangle([(30, y_offset + 10), (width - 30, y_offset + 110)], fill='#eef6ff', outline='#004b9a', width=1)
-        draw.text((50, y_offset + 25), "🎁 특별 프로모션 & 결합 혜택", fill='#004b9a', font=font_title)
-        draw.text((50, y_offset + 62), promo_text[:45], fill='#1e293b', font=font_regular)
+        draw.rectangle([(50, y_offset + 10), (width - 50, y_offset + 180)], fill='#e0f2fe', outline='#0284c7', width=2)
+        draw.text((80, y_offset + 35), "🎁 특별 프로모션 & 결합 혜택", fill='#0369a1', font=font_title)
+        draw.text((80, y_offset + 105), promo_text[:45], fill='#0f172a', font=font_regular)
 
-    # 5. 하단 푸터
-    draw.rectangle([(0, height - 75), (width, height)], fill='#0f172a')
-    draw.text((35, height - 52), "📞 서비스 문의 & 무료 현장 진단: 세스코 담당 영업팀", fill='#ffffff', font=font_regular)
-    draw.text((35, height - 28), "※ 본 견적은 현장 상황 및 약정 조건에 따라 일부 변동될 수 있습니다.", fill='#94a3b8', font=font_small)
+    # 5. 하단 푸터 영역
+    draw.rectangle([(0, height - 130), (width, height)], fill='#0f172a')
+    draw.text((60, height - 95), "📞 서비스 문의 & 무료 현장 진단: 세스코 담당 영업팀", fill='#ffffff', font=font_regular)
+    draw.text((60, height - 55), "※ 본 견적은 현장 상황 및 약정 조건에 따라 변동될 수 있습니다.", fill='#94a3b8', font=font_small)
     
     buf = io.BytesIO()
     img.save(buf, format='PNG')
@@ -373,12 +407,12 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 [고도화] 완성형 카톡 제안서 & 그래픽 카드 생성
+    # 📱 [모바일 최적화] 카톡 제안서 & 초고해상도 카드 생성
     # ==========================================
     st.write("---")
     if len(st.session_state.messages) > 0:
         if st.button("📱 **완성형 카톡 제안서 & 카드 이미지 생성하기**", use_container_width=True):
-            with st.spinner("견적 구조화 분석 및 완성형 모바일 카드 제작 중..."):
+            with st.spinner("견적 구조화 분석 및 초고해상도 그래픽 카드 제작 중..."):
                 try:
                     recent_chat = st.session_state.messages[-1]["content"]
                     
@@ -393,7 +427,7 @@ if "GEMINI_API_KEY" in st.secrets:
                     st.subheader("📱 **1. 카톡/문자 전송용 텍스트**")
                     st.code(text_res.text, language="text")
                     
-                    # 2. 이미지 카드용 JSON 데이터 구조화 파싱
+                    # 2. 고해상도 그래픽 카드용 JSON 파싱
                     json_prompt = (
                         f"다음 견적 내용에서 핵심 서비스와 요금 정보를 추출하여 오직 JSON 형식으로만 응답해 줘.\n"
                         f"JSON 구조 예시:\n"
@@ -410,7 +444,6 @@ if "GEMINI_API_KEY" in st.secrets:
                     )
                     json_res = chat.send_message(json_prompt)
                     
-                    # JSON 파싱
                     json_match = re.search(r'\{.*\}', json_res.text, re.DOTALL)
                     if json_match:
                         card_data = json.loads(json_match.group())
@@ -422,16 +455,16 @@ if "GEMINI_API_KEY" in st.secrets:
                             "promotion": "프로모션 및 결합 할인 조건 적용 가능"
                         }
                     
-                    # 3. 레이아웃이 잡힌 완제품 카드 이미지 생성
+                    # 3. 고해상도 그래픽 카드 생성
                     st.subheader("🖼️ **2. 카톡 전송용 완성형 견적 카드**")
-                    card_img_bytes = create_structured_quote_card(card_data)
+                    card_img_bytes = create_high_res_quote_card(card_data)
                     
-                    st.image(card_img_bytes, caption="완성형 세스코 견적 카드 (수정 필요 없는 완제품)", width=480)
+                    st.image(card_img_bytes, caption="모바일 전용 초고해상도 견적 카드 (1200x1600)", use_container_width=True)
                     
                     st.download_button(
-                        label="📥 **완성형 견적 카드 다운로드 (.png)**",
+                        label="📥 **고해상도 견적 카드 다운로드 (.png)**",
                         data=card_img_bytes,
-                        file_name="세스코_완성형_견적카드.png",
+                        file_name="세스코_고해상도_견적카드.png",
                         mime="image/png",
                         use_container_width=True
                     )
