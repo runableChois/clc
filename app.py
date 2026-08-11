@@ -14,6 +14,13 @@ from pypdf import PdfReader
 import streamlit as st
 import streamlit.components.v1 as components
 
+# OpenAI 라이브러리 안전 임포트 시도
+try:
+    from openai import OpenAI
+    OPENAI_AVAILABLE = True
+except ImportError:
+    OPENAI_AVAILABLE = False
+
 # ==========================================
 # 1. 페이지 기본 설정 및 모바일 UI 최적화 CSS
 # ==========================================
@@ -155,80 +162,39 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. 고품격 세스코 브랜드 제안서 이미지 카드 생성 엔진 (Pillow)
+# 3. 안전한 DALL-E 3 이미지 생성 함수
 # ==========================================
-FONT_PATH = "NanumGothic-Bold.ttf"
-
-def ensure_korean_font():
-    if not os.path.exists(FONT_PATH):
-        font_url = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf"
-        try:
-            urllib.request.urlretrieve(font_url, FONT_PATH)
-        except Exception as e:
-            st.error(f"폰트 다운로드 실패: {e}")
-
-def create_proposal_card_image(title, subtitle, sections):
-    ensure_korean_font()
-    width, height = 1200, 1600
-    img = Image.new('RGB', (width, height), color='#f8fafc')
-    draw = ImageDraw.Draw(img)
+def generate_dalle3_marketing_card(store_name, industry, solution_text):
+    if not OPENAI_AVAILABLE:
+        return None, "OpenAI 라이브러리가 설치되지 않았습니다."
+    
+    openai_key = st.secrets.get("OPENAI_API_KEY", "").strip()
+    if not openai_key:
+        return None, "OpenAI API Key가 설정되지 않았습니다."
     
     try:
-        font_brand = ImageFont.truetype(FONT_PATH, 44)
-        font_subhead = ImageFont.truetype(FONT_PATH, 22)
-        font_title = ImageFont.truetype(FONT_PATH, 32)
-        font_sect_title = ImageFont.truetype(FONT_PATH, 26)
-        font_body = ImageFont.truetype(FONT_PATH, 20)
-        font_footer = ImageFont.truetype(FONT_PATH, 20)
-    except Exception:
-        font_brand = font_subhead = font_title = font_sect_title = font_body = font_footer = ImageFont.load_default()
-
-    # 상단 헤더 배너
-    draw.rectangle([(0, 0), (width, 180)], fill='#003b7a')
-    draw.rectangle([(0, 170), (width, 180)], fill='#00a3e0') 
-    draw.text((60, 40), "🌿 CESCO 프리미엄 솔루션 제안서", fill='#ffffff', font=font_brand)
-    draw.text((60, 110), "고객 맞춤형 위생·환경 케어 제안 시스템", fill='#dbeafe', font=font_subhead)
-
-    # 타이틀 카드 박스
-    draw.rectangle([(50, 210), (width - 50, 330)], fill='#ffffff', outline='#cbd5e1', width=2)
-    draw.text((80, 235), title[:35], fill='#0f172a', font=font_title)
-    draw.text((80, 285), subtitle[:45], fill='#64748b', font=font_body)
-
-    # 3단계 섹션 카드 동적 출력
-    y_offset = 360
-    for sect in sections[:3]:
-        sec_title = sect.get("title", "")
-        sec_content = sect.get("content", "")
+        client_openai = OpenAI(api_key=openai_key)
+        prompt = (
+            f"A professional, high-end mobile marketing advertisement banner for a premium hygiene brand (CESCO). "
+            f"Vertical 9:16 aspect ratio. Deep trustworthy navy blue and clean sky blue corporate color scheme. "
+            f"Sleek, modern design layout featuring clean typography highlighting business '{store_name}' ({industry}), "
+            f"CESCO's 3-day free trial ('3일 무상 체험'), and solution keywords like '{solution_text}'. "
+            f"High resolution, crisp vector style graphics, premium corporate advertisement style, highly readable, no distorted text."
+        )
         
-        lines = []
-        for paragraph in sec_content.split('\n'):
-            if not paragraph.strip():
-                lines.append("")
-                continue
-            for i in range(0, len(paragraph), 45):
-                lines.append(paragraph[i:i+45])
-                
-        box_height = max(180, 70 + len(lines) * 28)
+        response = client_openai.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1792",
+            quality="standard",
+            n=1,
+        )
+        image_url = response.data[0].url
         
-        draw.rectangle([(50, y_offset), (width - 50, y_offset + box_height)], fill='#ffffff', outline='#e2e8f0', width=2)
-        draw.text((80, y_offset + 22), sec_title, fill='#003b7a', font=font_sect_title)
-        
-        line_y = y_offset + 65
-        for line in lines:
-            if line_y > y_offset + box_height - 20:
-                break
-            draw.text((80, line_y), line, fill='#334155', font=font_body)
-            line_y += 28
-            
-        y_offset += box_height + 20
-
-    # 하단 푸터 바
-    draw.rectangle([(0, height - 100), (width, height)], fill='#0f172a')
-    draw.text((60, height - 60), "📞 세스코 공식 담당 플래너 | 3일 무상 체험 서비스 제공", fill='#ffffff', font=font_footer)
-    
-    buf = io.BytesIO()
-    img.save(buf, format='PNG')
-    return buf.getvalue()
+        with urllib.request.urlopen(image_url) as resp:
+            return resp.read(), None
+    except Exception as e:
+        return None, str(e)
 
 # ==========================================
 # 4. [LOCK] 영업 타겟 분석 시스템 지침 (고정 유지)
@@ -710,11 +676,11 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 AI 자동 완성형 카톡 제안서 & 세스코 브랜드 제안서 이미지 카드 생성 센터
+    # 📱 AI 자동 완성형 카톡 제안서 & DALL-E 3 디자인 마케팅 이미지 생성 센터
     # ==========================================
     st.write("---")
-    st.subheader("📋 AI 맞춤형 제안서 및 브랜드 이미지 카드 생성 센터")
-    st.caption("상호명과 업종만 입력하시면, 제미나이 AI가 텍스트 제안서를 작성하고, **고품격 세스코 브랜드 이미지 카드(.png)**를 실시간으로 생성합니다.")
+    st.subheader("📋 AI 맞춤형 제안서 및 DALL-E 3 디자인 마케팅 카드 생성 센터")
+    st.caption("상호명과 업종만 입력하시면, 제미나이 AI가 텍스트 제안서를 작성하고, **OpenAI DALL-E 3가 고품격 디자인 마케팅 이미지 카드(.png)**를 실시간으로 생성합니다.")
     
     proposal_tab1, proposal_tab2 = st.tabs(["📱 카톡 1페이지 요약 제안서", "📄 특정 제품 1장 상세 제안서"])
     
@@ -727,7 +693,7 @@ if "GEMINI_API_KEY" in st.secrets:
             with c2:
                 auto_loc = st.text_input("지역 / 상권", placeholder="예: 파주 야당역 상권")
                 
-            submitted_auto_kakao = st.form_submit_button("✨ AI 제안서 텍스트 & 브랜드 이미지 카드 생성하기", use_container_width=True)
+            submitted_auto_kakao = st.form_submit_button("✨ AI 제안서 텍스트 & DALL-E 3 디자인 이미지 생성하기", use_container_width=True)
             
         if submitted_auto_kakao:
             if not auto_store or not auto_ind:
@@ -791,90 +757,48 @@ if "GEMINI_API_KEY" in st.secrets:
 지금 바로 세스코 프리미엄 케어를 경험해보세요!
 ━━━━━━━━━━━━━━━━━━━━"""
                     
-                    st.success("✅ AI 텍스트 제안서와 고품격 브랜드 이미지 카드가 완성되었습니다!")
+                    st.success("✅ AI 텍스트 제안서가 완성되었습니다! 이어 DALL-E 3 디자인 이미지를 생성 중입니다...")
                     st.code(kakao_formatted_text, language="markdown")
                 
-                sections_data = [
-                    {"title": "1. 사업장 진단 요약", "content": f"위치: {auto_loc}\n업종: {auto_ind}\n진단: {ai_sum}"},
-                    {"title": "2. 맞춤형 추천 솔루션", "content": ai_sol},
-                    {"title": "3. 특별 혜택 및 안내", "content": f"혜택: {ai_ben}\n설치 일정: 담당 플래너 협의 후 진행"}
-                ]
-                img_bytes = create_proposal_card_image(
-                    title=f"'{auto_store}' 맞춤 위생 솔루션",
-                    subtitle=f"업종: {auto_ind} | 상권: {auto_loc}",
-                    sections=sections_data
-                )
-                
-                st.image(img_bytes, caption=f"브랜드 제안서 이미지 카드 ({auto_store})", use_container_width=True)
-                st.download_button(
-                    label="📥 제안서 이미지 카드 다운로드 (.png)",
-                    data=img_bytes,
-                    file_name=f"CESCO_제안서_{auto_store}.png",
-                    mime="image/png",
-                    use_container_width=True
-                )
+                with st.spinner("OpenAI DALL-E 3 인공지능이 전문 디자인 마케팅 이미지를 렌더링 중입니다 (약 10~15초 소요)..."):
+                    dalle_bytes, err = generate_dalle3_marketing_card(auto_store, auto_ind, ai_sol)
+                    if dalle_bytes:
+                        st.image(dalle_bytes, caption=f"DALL-E 3 실시간 생성 마케팅 카드 ({auto_store})", use_container_width=True)
+                        st.download_button(
+                            label="📥 DALL-E 3 디자인 마케팅 카드 다운로드 (.png)",
+                            data=dalle_bytes,
+                            file_name=f"CESCO_DALLE3_{auto_store}.png",
+                            mime="image/png",
+                            use_container_width=True
+                        )
+                    else:
+                        st.error(f"이미지 생성 실패: {err}")
 
     with proposal_tab2:
         with st.form("auto_product_form"):
             auto_prod_name = st.text_input("제안할 세스코 제품명", placeholder="예: 세스코 공기살균기 센스미 / 에어제닉")
             auto_prod_target = st.text_input("타겟 고객 업종", placeholder="예: 대형 병원 로비, 피부과 메디컬 뷰티숍")
             
-            submitted_auto_prod = st.form_submit_button("📄 AI 제품 제안서 & 브랜드 이미지 카드 생성하기", use_container_width=True)
+            submitted_auto_prod = st.form_submit_button("📄 AI 제품 제안서 & DALL-E 3 디자인 이미지 생성하기", use_container_width=True)
             
         if submitted_auto_prod:
             if not auto_prod_name or not auto_prod_target:
-                st.warning("제품명과 타겟 업종은 필수 입력 항목입니다.")
+                st.warning("제품명과 타겟 업종을 입력해 주세요.")
             else:
-                with st.spinner("제미나이 AI가 제품 제안서와 이미지 카드를 생성 중입니다..."):
-                    prod_prompt = (
-                        f"세스코 영업사원이 '{auto_prod_target}' 업종 고객에게 제시할 '{auto_prod_name}' 제품 제안서 내용을 작성해 주세요.\n"
-                        f"아래 JSON 형식으로만 응답해 주세요:\n"
-                        f"{{\n"
-                        f'  "overview_text": "대상 업종 맞춤형 프리미엄 위생 및 공기질 개선 케어",\n'
-                        f'  "spec_text": "UV-C 파워 살균 및 S형 유로 설계로 부유 세균 99.9% 제거",\n'
-                        f'  "benefit_text": "100% 본사 지원 3일 무상 체험 서비스 즉시 적용"\n'
-                        f"}}\n"
-                    )
-                    chat_prod = client.chats.create(model="gemini-3-flash-preview")
-                    prod_res = chat_prod.send_message(prod_prompt)
-                    
-                    try:
-                        json_match = re.search(r'\{.*\}', prod_res.text, re.DOTALL)
-                        if json_match:
-                            parsed_p = json.loads(json_match.group())
-                            p_over = parsed_p.get("overview_text", "")
-                            p_spec = parsed_p.get("spec_text", "")
-                            p_ben = parsed_p.get("benefit_text", "")
-                        else:
-                            p_over = f"대상 업종: {auto_prod_target}"
-                            p_spec = f"제품명: {auto_prod_name} 핵심 스펙"
-                            p_ben = "3일 무상 체험 제공"
-                    except:
-                        p_over = f"제안 제품: {auto_prod_name}"
-                        p_spec = "최첨단 위생 살균 케어"
-                        p_ben = "3일 무상 체험 제공"
-
-                    st.success("✅ 제품 제안서와 브랜드 이미지 카드가 완성되었습니다!")
-                    
-                    prod_sections = [
-                        {"title": "1. 제안 개요 및 도입 배경", "content": f"타겟 업종: {auto_prod_target}\n개요: {p_over}"},
-                        {"title": "2. 핵심 기술 스펙 & 차별점", "content": p_spec},
-                        {"title": "3. 3일 무상 체험 및 도입 안내", "content": p_ben}
-                    ]
-                    prod_img_bytes = create_proposal_card_image(
-                        title=f"{auto_prod_name} 맞춤 제안서",
-                        subtitle=f"타겟 업종: {auto_prod_target}",
-                        sections=prod_sections
-                    )
-                    
-                    st.image(prod_img_bytes, caption=f"제품 제안서 이미지 카드 ({auto_prod_name})", use_container_width=True)
-                    st.download_button(
-                        label="📥 제품 제안서 이미지 카드 다운로드 (.png)",
-                        data=prod_img_bytes,
-                        file_name=f"CESCO_제품제안서_{auto_prod_name}.png",
-                        mime="image/png",
-                        use_container_width=True
-                    )
+                with st.spinner("OpenAI DALL-E 3가 해당 제품 맞춤형 고품격 디자인 광고 배너를 생성 중입니다..."):
+                    dalle_bytes, err = generate_dalle3_marketing_card(auto_prod_target, auto_prod_name, "3일 무상 체험 및 전문 살균 케어")
+                    if dalle_bytes:
+                        st.success("✅ DALL-E 3 제품 광고 디자인 카드가 완성되었습니다!")
+                        st.image(dalle_bytes, caption=f"DALL-E 3 제품 광고 디자인 카드 ({auto_prod_name})", use_container_width=True)
+                        st.download_button(
+                            label="📥 제품 광고 디자인 카드 다운로드 (.png)",
+                            data=dalle_bytes,
+                            file_name=f"CESCO_Product_DALLE3_{auto_prod_name}.png",
+                            mime="image/png",
+                            use_container_width=True
+                        )
+                    else:
+                        st.error(f"이미지 생성 실패: {err}")
 
     # ==========================================
     # 📝 현장 영업일지 기록 (3일 체험 스케줄 자동 연동)
