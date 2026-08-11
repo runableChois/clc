@@ -108,13 +108,12 @@ def search_kakao_local_stores(query_text):
     if not kakao_key:
         return None
     
-    # 긴 질문 문장에서 카카오 검색용 키워드만 정제 (장소/건물명 추출)
+    # 긴 질문 문장에서 카카오 검색용 키워드만 정제
     clean_query = query_text
     for stop_word in ["입점 매장", "입점매장", "매장 리스트", "점포 리스트", "상권", "특징", "전략", "분석해줘", "알려줘", "3일 체험", "3일체험", "추천", "침투", "포진 업종", "골든타임", "네이버 지도 주소"]:
         clean_query = clean_query.replace(stop_word, "")
     clean_query = clean_query.strip()
     
-    # 불필요한 서술어가 남은 경우 첫 단어 2~3개 위주로 1차 키워드 설정
     search_keyword = clean_query if clean_query else query_text.split()[0]
 
     try:
@@ -127,7 +126,6 @@ def search_kakao_local_stores(query_text):
             res_data = json.loads(response.read().decode('utf-8'))
             documents = res_data.get('documents', [])
             
-            # 만약 정제된 키워드로 검색 결과가 없으면, 원본 질문의 첫 단어(지역/건물명)로 2차 시도
             if not documents and len(query_text.split()) > 0:
                 first_word = query_text.split()[0]
                 encoded_fb = urllib.parse.quote(first_word)
@@ -158,12 +156,14 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. 통합 마스터 시스템 지침 & 제품 지식 베이스
+# 3. '콕 집어주는 결단형 영업 팀장' 마스터 시스템 지침
 # ==========================================
 CESCO_MASTER_SYSTEM_INSTRUCTION = """
-당신은 세스코(CESCO) 경기서북부(고양, 파주, 김포, 인천 검단) 영업 플래너를 전담 지원하는 '올인원 현장 영업 지원 마스터 AI'입니다.
+당신은 피상적이고 포괄적인 조언을 싫어하는 '실전 결단형 세스코 영업 팀장 AI'입니다.
+"다 좋다, 아무 데나 가라"식의 백화점식 나열이나 포괄적 설명은 절대 금지합니다.
+플래너가 상권, 건물, 주소를 물어보면 제공된 카카오 지도 실시간 매장 데이터 중에서 **'오늘 가장 계약/체험 성공 확률이 높은 단 1~2개 매장'을 콕 집어서 지정**하고, 문 열고 들어가서 할 구체적 대본과 장비를 찍어주세요.
 
-[세스코 핵심 8대 제품 라인업 지식 기반]
+[세스코 핵심 8대 제품 라인업]
 1. 공기청정기: '판테온' (360도 필터, CA인증, CO2/PM1.0 센서, 초미세먼지 및 냄새 탈취)
 2. 공기살균기: '센스미' (UV-C 파워 램프, S형 유로 설계, 부유 바이러스·세균 99.9% 제거, 슬림 디자인)
 3. 탱크형 정수기: '더슬림', '더블', '더맥스' (업소용 대용량, 다중 필터링, 연속 출수)
@@ -173,23 +173,23 @@ CESCO_MASTER_SYSTEM_INSTRUCTION = """
 7. 화장실 케어 제품: '프레쉬제닉' (변기 세정·탈취), '핸드제닉' (비접촉 손세정기), '새니제닉' (비접촉 손소독기)
 8. 날벌레 방지 제품: '에어커튼' (출입구 바람 차단), '포충등' (실내 자외선 포충/유인)
 
-[플래너 질문 유형별 응답 작성 규칙]
+[플래너 질문 시 무조건 따라야 할 콕 집어주는 답변 작성 규칙]
 
-1. 📍 특정 상권 / 지역 / 건물 / 주소 영업 문의 시:
-   - 제공된 실시간 입점 점포 리스트를 100% 활용하여 아래 5단계 실전 영업 타겟 리포트를 작성하세요:
-     ① 🏢 [카카오 지도 실시간 입점 매장 분석] 수집된 실제 매장명들을 나열하고 업종별 3일 체험 추천 타겟 선정
-     ② ⏰ 업종별 사장님 상주 '골든타임' 시간대 (뷰티 10~11시반, 외식 14시반~16시반, 학원 13~15시 등)
-     ③ 📍 정확한 도로명 주소 및 네이버/카카오 지도 길찾기 링크 작성
-        (네이버 지도 URL: [📍 네이버 지도로 위치 보기](https://map.naver.com/v5/search/상호명또는주소))
-     ④ 🛡️ '네이버 악성 리뷰 방지 & 매출 보호 ROI' 설득 논리 및 3일 무상 체험 피칭 스크립트
-     ⑤ 📋 영업 타겟 요약표 [상호명 | 대표 업종 | 추천 체험장비 | 점주 골든타임 | 네이버 지도 바로가기]
+1. 🎯 [오늘 당장 문 열고 들어갈 1순위 킬러 타겟 매장 콕 집기]
+   - 수집된 실제 매장 리스트 중 오늘 3일 무상 체험 유치 성공 확률이 가장 높은 **단 1개(최대 2개) 매장의 [실제 상호명]을 지정**하세요.
+   - 다른 매장 다 제쳐두고 하필 '이 매장'을 먼저 가야 하는 명확한 이유(예: 약품 냄새가 자욱한 네일숍, 피팅룸 악취로 리뷰 감점되는 옷가게 등 업종 특유의 급소)를 단정적으로 설명하세요.
 
-2. 🔍 견적 / 요금 / 제품 단가 문의 시:
-   - 업로드된 [학습 문서 데이터]가 있다면 최우선 참조.
-   - 3단계 스스로 점검(문서 존재여부 → 단독가/결합가 가격 정확성 → 적합성) 후 표와 불렛포인트로 간결히 답변.
+2. 🎁 [들고 갈 전용 장비 & 설치 장소 지정]
+   - 이것저것 다 제안하지 말고, 8대 제품 중 손에 들고 들어갈 **단 1~2개 핵심 제품**만 찍어주세요. (예: "손에 에어제닉 B타입 하나만 들고 가세요")
+   - 매장 어디에 걸어야 하는지(예: 대기실 소파 옆 콘센트, 피팅룸 안쪽 등) 위치를 지정하세요.
 
-3. 🛡️ 거절 대응 문의 시:
-   - 거절 반응을 뒤집는 1초 반박 스크립트와 세스코 차별점을 핵심만 명확히 답변.
+3. ⏰ [골든타임 시각 & 문 열고 들어갈 때 던질 10초 킬러 오프닝 대본]
+   - 사장님이 매장에 상주하며 대화가 가능한 정확한 시각(예: 오전 10:30~11:30)을 찍어주세요.
+   - 문 열고 들어가자마자 사장님 안면 트고 3일 무료 체험 설치를 받아내게 만드는 실전 오프닝 대본(Script)을 따옴표(" ")로 작성하세요.
+
+4. 📍 [길찾기 원클릭 링크]
+   - 지정된 1순위 매장으로 바로 이동할 수 있는 지도 링크를 작성하세요.
+   - 형식: [📍 네이버 지도로 1순위 매장 길찾기](https://map.naver.com/v5/search/실제상호명)
 """
 
 # ==========================================
@@ -406,8 +406,8 @@ def save_equipment_inventory(df):
 # ==========================================
 with st.sidebar:
     st.header("⚙️ 세스코 영업지원 센터")
-    st.success("🤖 **카카오 지도 실시간 연동 가동 중**")
-    st.caption("질문, 건물주소, 사진, 거절 대응 등 무엇이든 입력하면 AI가 카카오 지도와 연동하여 답변합니다.")
+    st.success("🤖 **결단형 킬러 타겟팅 가동 중**")
+    st.caption("건물/주소를 입력하면 AI가 오늘 문 열어야 할 1순위 매장을 콕 집어주고 대본을 제공합니다.")
 
     st.divider()
     st.subheader("📚 현재 AI 학습 문서 상태")
@@ -568,9 +568,9 @@ with st.sidebar:
 st.title("💼 우리 팀 세스코 영업지원 AI (Pro)")
 
 if learned_files_list:
-    st.caption(f"📌 **참조 학습 문서:** `{len(learned_files_list)}건 통합` | 경기서북부 올인원 AI")
+    st.caption(f"📌 **참조 학습 문서:** `{len(learned_files_list)}건 통합` | 경기서북부 결단형 AI")
 else:
-    st.caption("📌 **경기서북부(고양/파주/김포/검단) 올인원 스마트 영업 AI**")
+    st.caption("📌 **경기서북부 올인원 결단형 킬러 타겟팅 AI**")
 
 st.divider()
 
@@ -610,7 +610,7 @@ if "GEMINI_API_KEY" in st.secrets:
             st.markdown(message["content"])
 
     selected_faq = None
-    st.write("💡 **경기 서북부 주요 거점 퀵 분석 (버튼 터치):**")
+    st.write("💡 **경기 서북부 주요 거점 킬러 타겟팅 (버튼 터치):**")
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
@@ -634,9 +634,8 @@ if "GEMINI_API_KEY" in st.secrets:
         if uploaded_img:
             st.image(uploaded_img, caption="첨부된 현장 사진 진단 준비 완료", width=250)
 
-    prompt_input = st.chat_input("건물명/주소를 입력하세요... (예: 라페스타 B동, 또는 야당역 CGV타워)")
+    prompt_input = st.chat_input("건물명/주소를 입력하세요... (예: 라페스타 B동, 파주 야당역 CGV타워)")
     
-    # 거절 반박 퀵카드 -> 퀵 버튼 -> 입력창 순 적용
     if quick_rejection_prompt:
         user_prompt = quick_rejection_prompt
     elif selected_faq:
@@ -650,12 +649,10 @@ if "GEMINI_API_KEY" in st.secrets:
         st.chat_message("user").markdown(user_prompt)
         st.session_state.messages.append({"role": "user", "content": user_prompt})
 
-        # 건물/주소 언급 시 카카오 지도 REST API 실시간 연동 검색
         real_stores_data = None
         if not quick_rejection_prompt and not uploaded_img:
             real_stores_data = search_kakao_local_stores(user_prompt)
 
-        # 🔥 카카오 지도 실시간 검색 결과가 있을 경우 화면상에 명확히 표로 표출
         if real_stores_data and len(real_stores_data) > 0:
             with st.expander(f"📍 **카카오 지도 실시간 검색 매장 리스트 ({len(real_stores_data)}건 수집됨)**", expanded=True):
                 st.dataframe(pd.DataFrame(real_stores_data)[["상호명", "업종", "주소", "전화번호"]], use_container_width=True)
@@ -665,7 +662,6 @@ if "GEMINI_API_KEY" in st.secrets:
             role = "user" if msg["role"] == "user" else "model"
             history.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-        # 시스템 지침 분기 처리 (통합 마스터 엔진 적용)
         if quick_rejection_prompt:
             final_system_instruction = (
                 "당신은 베테랑 세스코 영업 멘토입니다.\n"
@@ -685,13 +681,12 @@ if "GEMINI_API_KEY" in st.secrets:
         else:
             final_system_instruction = CESCO_MASTER_SYSTEM_INSTRUCTION
             
-            # 카카오 지도 실시간 데이터가 수집되었을 경우 AI에게 강제 반영 지침 전달
             if real_stores_data and len(real_stores_data) > 0:
                 stores_text_list = json.dumps(real_stores_data, ensure_ascii=False, indent=2)
                 final_system_instruction += (
-                    f"\n\n[★필수 반영★ 카카오 지도 실시간 수집 실제 매장 리스트 ({len(real_stores_data)}건)]\n"
-                    "아래는 카카오 지도 API에서 방금 실시간으로 가져온 실제 입점 매장 데이터입니다.\n"
-                    "다른 가짜 매장을 지어내지 말고, 절대로 추정하지 마세요. 답변 작성 시 **오직 아래 리스트에 있는 실제 [상호명, 업종, 주소]만을 100% 사용하여** 3일 체험 제안 리포트와 요약표를 작성하세요:\n"
+                    f"\n\n[★필수 지침★ 카카오 지도 실시간 수집 매장 리스트 ({len(real_stores_data)}건)]\n"
+                    "아래 카카오 지도 실시간 매장 리스트 중에서 **3일 무상 체험 설치 유치 성공 확률이 가장 높은 단 1~2개 매장만 콕 집어서 지정**하세요.\n"
+                    "절대로 다른 여러 매장을 백화점식으로 나열하거나 다 좋다고 설명하지 마세요. '오늘 문 열고 들어갈 단 하나의 1순위 매장'을 찍어주고 대본을 제공하세요:\n"
                     f"{stores_text_list}"
                 )
 
