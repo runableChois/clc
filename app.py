@@ -73,6 +73,7 @@ st.markdown("""
 FONT_PATH = "NanumGothic-Bold.ttf"
 
 def ensure_korean_font():
+    """클라우드 서버용 한글 폰트 자동 다운로드"""
     if not os.path.exists(FONT_PATH):
         font_url = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf"
         try:
@@ -81,6 +82,7 @@ def ensure_korean_font():
             st.error(f"폰트 다운로드 실패: {e}")
 
 def create_high_res_quote_card(card_data):
+    """모바일 전용 초고해상도(1200x1600) 완제품 이미지 카드 생성"""
     ensure_korean_font()
     width, height = 1200, 1600
     img = Image.new('RGB', (width, height), color='#f1f5f9')
@@ -143,70 +145,81 @@ def create_high_res_quote_card(card_data):
     return buf.getvalue()
 
 # ==========================================
-# 3. 데이터 I/O 및 학습 문서 처리 함수 (고도화)
+# 3. 데이터 I/O 및 누적 문서 학습 함수 (고도화)
 # ==========================================
 # 💡 [RAG] 학습 텍스트 저장 경로
 KNOWLEDGE_BASE_PATH = "cesco_knowledge_base.txt"
-KNOWLEDGE_NAME_PATH = "cesco_knowledge_name.txt"
+# 💡 [고도화] 학습된 파일 목록 저장 경로
+KNOWLEDGE_FILES_PATH = "cesco_knowledge_files_list.txt"
 SALES_LOG_PATH = "sales_activity_log.csv"
 EQUIPMENT_LOG_PATH = "team_equipment_inventory.csv"
 
 def load_knowledge_data():
-    """저장된 문서 학습 데이터를 불러옵니다."""
-    if os.path.exists(KNOWLEDGE_BASE_PATH) and os.path.exists(KNOWLEDGE_NAME_PATH):
+    """저장된 통합 학습 데이터와 파일 목록을 불러옵니다."""
+    context = ""
+    file_list_str = ""
+    if os.path.exists(KNOWLEDGE_BASE_PATH):
         with open(KNOWLEDGE_BASE_PATH, "r", encoding="utf-8") as f:
             context = f.read()
-        with open(KNOWLEDGE_NAME_PATH, "r", encoding="utf-8") as f:
-            filename = f.read()
-        return context, filename
-    return "", None
+    if os.path.exists(KNOWLEDGE_FILES_PATH):
+        with open(KNOWLEDGE_FILES_PATH, "r", encoding="utf-8") as f:
+            file_list_str = f.read()
+    return context, file_list_str
 
-def save_knowledge_data(context, filename):
-    """문서에서 추출한 텍스트를 로컬 DB에 저장합니다."""
-    with open(KNOWLEDGE_BASE_PATH, "w", encoding="utf-8") as f:
-        f.write(context)
-    with open(KNOWLEDGE_NAME_PATH, "w", encoding="utf-8") as f:
-        f.write(filename)
-
-def delete_knowledge_data():
-    """저장된 학습 데이터를 삭제합니다."""
-    if os.path.exists(KNOWLEDGE_BASE_PATH):
-        os.remove(KNOWLEDGE_BASE_PATH)
-    if os.path.exists(KNOWLEDGE_NAME_PATH):
-        os.remove(KNOWLEDGE_NAME_PATH)
-
-def process_uploaded_file(uploaded_file):
-    """[핵심] PDF/엑셀 파일을 AI 학습용 텍스트로 변환합니다."""
+def add_file_to_cumulative_knowledge(uploaded_file):
+    """[핵심] 여러 파일의 텍스트를 추출하여 하나의 DB에 누적(Append)합니다."""
     extracted_text = ""
     filename = uploaded_file.name
-
+    
+    # 1. 문서 유형별 텍스트 추출 (유지)
     if filename.endswith(('.xlsx', '.xls')):
-        # 엑셀 파일 처리 (유지)
         df = pd.read_excel(uploaded_file, sheet_name=0)
         df = df.dropna(how="all")
         extracted_text = df.to_markdown(index=False)
-        
     elif filename.endswith('.csv'):
-        # CSV 파일 처리 (유지)
         df = pd.read_csv(uploaded_file)
         df = df.dropna(how="all")
         extracted_text = df.to_markdown(index=False)
-        
     elif filename.endswith('.pdf'):
-        # PDF 파일 처리 (고도화 - pypdf 활용)
         reader = PdfReader(uploaded_file)
-        full_text = ""
-        # 💡 전체 페이지를 순회하며 텍스트 추출
         for idx, page in enumerate(reader.pages, start=1):
             text = page.extract_text()
             if text:
-                full_text += f"\n--- [PDF Page {idx}] ---\n" + text + "\n"
-        extracted_text = full_text
+                extracted_text += text + "\n"
 
-    return extracted_text, filename
+    if extracted_text:
+        # 💡 [고도화] 기존 지식 베이스 불러오기
+        current_context, current_files = load_knowledge_data()
+        
+        # 중복 학습 방지 (이미 목록에 있는 파일이면 건너뜀)
+        if filename in current_files:
+            return False, f"⚠️ `{filename}` 문서는 이미 학습되어 있습니다."
 
-# 💡 앱 시작 시 학습 데이터를 메모리에 상시 로드
-knowledge_context, learned_filename = load_knowledge_data()
+        # 2. 💡 [핵심] 기존 텍스트에 새로운 텍스트를 구분선과 함께 추가(누적 Append)
+        new_context = current_context + f"\n\n--- [학습 문서 시작: {filename}] ---\n" + extracted_text + f"\n--- [학습 문서 끝: {filename}] ---\n"
+        
+        # 3. 로컬 DB에 통합 텍스트 저장
+        with open(KNOWLEDGE_BASE_PATH, "w", encoding="utf-8") as f:
+            f.write(new_context)
+            
+        # 4. 파일 목록 업데이트
+        new_files_list = (current_files + "," + filename).strip(",")
+        with open(KNOWLEDGE_FILES_PATH, "w", encoding="utf-8") as f:
+            f.write(new_files_list)
+            
+        return True, f"✅ `{filename}` 문서 학습 완료! 통합 지식 베이스에 추가되었습니다."
+    return False, f"⚠️ `{filename}` 문서에서 텍스트를 추출할 수 없습니다."
+
+def delete_all_knowledge_data():
+    """저장된 통합 학습 데이터를 전체 삭제(초기화)합니다."""
+    if os.path.exists(KNOWLEDGE_BASE_PATH):
+        os.remove(KNOWLEDGE_BASE_PATH)
+    if os.path.exists(KNOWLEDGE_FILES_PATH):
+        os.remove(KNOWLEDGE_FILES_PATH)
+
+# 💡 앱 시작 시 통합 학습 데이터를 메모리에 상시 로드
+knowledge_context, learned_files_str = load_knowledge_data()
+learned_files_list = learned_files_str.split(",") if learned_files_str else []
 
 # 💡 [핵심 논리 수정] 영업일지 저장 시 Inventory Total을 직접 수정하지 않음 (이중 차감 방지)
 def save_sales_log(planner_name, client_name, proposed_deal, equipment_status, equipment_item, reaction, memo):
@@ -255,13 +268,13 @@ def save_equipment_inventory(df):
 with st.sidebar:
     st.header("⚙️ 영업 모드 설정")
     
-    # 💡 [고도화] 상권 분석 전문가 모드 및 RAG 전용 모드 추가
+    # [고도화] 상권 분석 전문가 모드 및 RAG 전용 모드 추가
     role_option = st.selectbox(
         "AI 영업 파트너 모드:",
         ["견적 & 요금 비교 전문가 (학습 문서 기반 Pro)", "상권 분석 & 영업지 선정 전문가 (BI Pro)", "거절 대응 & 셀링포인트 안내", "자유 질문 모드"]
     )
     
-    # 💡 [고도화 프롬프트] 각 모드별 프롬프트 논리 대폭 강화 (3-Step Self-Correction 및 외부 지식 활용)
+    # [고도화 프롬프트] 각 모드별 프롬프트 논리 대폭 강화 (3-Step Self-Correction 및 외부 지식 활용)
     if role_option == "견적 & 요금 비교 전문가 (학습 문서 기반 Pro)":
         base_instruction = (
             "당신은 영업 플래너를 보조하는 세스코 초정밀 견적 및 제품 안내 전문 컨설턴트입니다.\n"
@@ -295,10 +308,12 @@ with st.sidebar:
         base_instruction = "당신은 유능하고 친절한 AI 영업 보조입니다. 답변은 간결하게 작성하세요."
 
     st.divider()
-    # 💡 현재 어떤 문서를 학습하고 있는지 상태 표시
+    # 💡 [고도화] 누적 학습된 파일 목록 상태 표시
     st.subheader("📚 현재 AI 학습 문서 상태")
-    if learned_filename:
-        st.success(f"**학습 완료:** `{learned_filename}`")
+    if learned_files_list:
+        st.success(f"**누적 학습 완료 ({len(learned_files_list)}건):**")
+        # 스크롤 가능한 상자 안에 파일 목록 표시
+        st.text_area("파일 목록 (RAG 최우선 참조)", value="\n".join(learned_files_list), height=100)
     else:
         st.info("현재 학습된 제품/단가표 문서가 없습니다.")
 
@@ -311,9 +326,9 @@ with st.sidebar:
         st.success("🔓 관리자 권한 활성화됨")
         
         # 관리자 기능을 탭으로 정리
-        admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📊 영업 대시보드", "📦 체험장비 운용/할당 설정", "📁 **AI 문서 학습(PDF)**"])
+        admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📊 영업 대시보드", "📦 체험장비 운용/할당 설정", "📁 **누적 문서 학습(PDF)**"])
         
-        # 📊 [1. 대시보드 탭] - 실시간 재고 계산 logic
+        # 📊 [1. 대시보드 탭] - 실시간 재고 계산 logic (유지)
         with admin_tab1:
             st.write("📈 **실시간 영업 성과 대시보드**")
             
@@ -326,16 +341,11 @@ with st.sidebar:
                 
                 inv_df = load_equipment_inventory()
                 
-                # [💡 수중 보유대수 실시간 계산 logic]
-                # 1. 영업일지에서 '설치 완료'된 건만 추출하여 플래너별 개수 집계
                 installed_counts = logs_df[logs_df["체험장비설치"] == "설치 완료"]["담당플래너"].value_counts().reset_index()
                 installed_counts.columns = ["담당플래너", "설치대수"]
                 
-                # 2. 전체보유 현황(Total)과 설치 대수를 병합
                 merged_inv = pd.merge(inv_df, installed_counts, on="담당플래너", how="left").fillna(0)
                 merged_inv["설치대수"] = merged_inv["설치대수"].astype(int)
-                
-                # 3. [💡 핵심 수식] 현재 수중 보유대수 = 전체 보유대수(할당량) - 설치대수
                 merged_inv["현재 수중 보유대수"] = merged_inv["전체 보유대수"] - merged_inv["설치대수"]
                 merged_inv["설치활동률(%)"] = (merged_inv["설치대수"] / merged_inv["전체 보유대수"] * 100).round(1)
                 
@@ -385,11 +395,10 @@ with st.sidebar:
             else:
                 st.info("영업일지 데이터가 쌓이면 실시간 분석 대시보드가 표시됩니다.")
 
-        # 📦 [2. 체험장비 운용 내역 & 재고 설정 탭] - 상세 목록 및 할당 설정
+        # 📦 [2. 체험장비 운용 내역 & 재고 설정 탭] - 상세 목록 및 할당 설정 (유지)
         with admin_tab2:
             st.write("📦 **체험장비 보유 대수 & 설치 장소/내역 종합 관리**")
             
-            # A. 설치 장소 및 상세 내역 대장
             st.subheader("📍 1. 체험장비 실제 설치 매장/장소 상세 내역")
             if os.path.exists(SALES_LOG_PATH):
                 logs_df = pd.read_csv(SALES_LOG_PATH)
@@ -410,7 +419,6 @@ with st.sidebar:
                 
             st.divider()
             
-            # B. 플래너 보유 대수 관리 (Total 할당량 설정)
             st.subheader("⚙️ 2. 플래너별 체험장비 전체 할당 대수(Total) 수정")
             st.caption("플래너가 본사로부터 처음에 받은 전체 할당 대수(Total)를 직접 설정 및 수정하는 화면입니다.")
             current_inv = load_equipment_inventory()
@@ -421,35 +429,41 @@ with st.sidebar:
                 st.toast("✅ 플래너별 체험장비 전체 할당 대수가 업데이트되었습니다!", icon="🎉")
                 st.rerun()
 
-        # 📁 [3. **AI 문서 학습(PDF)** 탭] - 💡 [RAG 핵심 탭]
+        # 📁 [3. **누적 문서 학습(PDF)** 탭] - 💡 [RAG 누적 핵심 탭]
         with admin_tab3:
-            st.subheader("📁 제품 정보 및 단가표 문서(PDF) 학습시키기")
-            st.caption("PDF, 엑셀, CSV 파일을 업로드하면 AI가 분석하여 답변 시 최우선으로 참조합니다.")
+            st.subheader("📁 제품 정보 및 단가표 문서(PDF) 누적하여 학습시키기")
+            st.caption("여러 개의 PDF, 엑셀 파일을 업로드하면 AI가 통합하여 하나의 거대한 지식 기반으로 만듭니다.")
             
-            new_file = st.file_uploader("새 제품 문서 업로드", type=["pdf", "xlsx", "csv"])
+            # 다중 파일 업로드 허용
+            uploaded_files = st.file_uploader("여러 제품 문서 업로드 (누적 학습)", type=["pdf", "xlsx", "csv"], accept_multiple_files=True)
             
-            if new_file and st.button("💾 이 문서를 AI에게 학습시키기", use_container_width=True):
-                try:
-                    with st.spinner("AI가 문서를 정밀 분석 및 학습 중입니다. 잠시만 기다려주세요..."):
-                        # [핵심] 문서 처리 함수 호출
-                        parsed_text, fname = process_uploaded_file(new_file)
-                        # 로컬 DB에 저장
-                        save_knowledge_data(parsed_text, fname)
-                        
-                        st.toast(f"✅ `{fname}` 문서 학습 완료!", icon="🎉")
-                        # 학습 데이터를 메모리에 즉시 반영하기 위해 리런
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"⚠️ 문서 처리 중 오류 발생: {e}")
+            if uploaded_files and st.button("💾 업로드된 모든 문서를 누적 학습시키기", use_container_width=True):
+                success_count = 0
+                error_msgs = []
+                with st.spinner("AI가 여러 문서를 정밀 분석 및 통합 학습 중입니다. 잠시만 기다려주세요..."):
+                    for up_file in uploaded_files:
+                        # [핵심] 누적 처리 함수 호출
+                        success, message = add_file_to_cumulative_knowledge(up_file)
+                        if success:
+                            success_count += 1
+                        else:
+                            error_msgs.append(message)
+                            
+                if success_count > 0:
+                    st.toast(f"✅ {success_count}건의 문서 누적 학습 완료!", icon="🎉")
+                if error_msgs:
+                    st.warning("\n".join(error_msgs))
+                # 학습 데이터를 메모리에 즉시 반영하기 위해 리런
+                st.rerun()
                     
-            if learned_filename and st.button("🗑️ 등록된 학습 데이터 삭제", use_container_width=True, type="secondary"):
-                delete_knowledge_data()
-                st.toast("등록된 학습 데이터 삭제 완료!", icon="🧹")
+            if learned_files_list and st.button("🗑️ 전체 학습 데이터 초기화 (삭제)", use_container_width=True, type="secondary"):
+                delete_all_knowledge_data()
+                st.toast("전체 학습 데이터 초기화 완료! RAG 모드가 기본 모드로 작동합니다.", icon="🧹")
                 st.rerun()
     elif input_pwd:
         st.error("비밀번호 불일치")
     else:
-        st.caption("관리자만 영업 대시보드 및 AI 문서 학습 관리가 가능합니다.")
+        st.caption("관리자만 영업 대시보드 및 AI 누적 문서 학습 관리가 가능합니다.")
 
     st.divider()
     if st.button("🔄 대화 내용 초기화", use_container_width=True):
@@ -462,10 +476,10 @@ with st.sidebar:
 st.title("💼 우리 팀 세스코 영업지원 AI (Pro)")
 
 # 학습 상태 메인 화면 표시 (유지)
-if learned_filename:
-    st.caption(f"📌 **참조 학습 문서:** {learned_filename} | AI 고도화(사진 진단 & 3-Step 점검) 모드")
+if learned_files_list:
+    st.caption(f"📌 **참조 학습 문서:** `{len(learned_files_list)}건 통합` | 사진 진단 & Pro 모드")
 else:
-    st.caption("📌 **참조 단가표 없음** | 상권 분석 & 외부 지식 모드")
+    st.caption("📌 **참조 단가표 없음** | BI Pro 및 외부 지식 모드")
 
 st.divider()
 
@@ -508,15 +522,14 @@ if "GEMINI_API_KEY" in st.secrets:
 
     st.write("---")
     
-    # 📸 [고도화] 이미지 진단 프롬프트 강화
+    # 📸 [고도화] 이미지 진단 프롬프트 강화 (유지)
     with st.expander("📸 **현장 해충/매장 사진 AI 진단 및 제품 추천**"):
         uploaded_img = st.file_uploader("현장 스마트폰 사진을 첨부하세요. AI가 식별 및 견적을 3번 점검합니다.", type=["jpg", "jpeg", "png"])
         if uploaded_img:
             st.image(uploaded_img, caption="첨부된 사진 진단 중...", width=200)
 
-    # user_prompt = selected_faq if selected_faq else prompt_input # This logic needs prompt_input to exist first
-
-    # 💡 [문제 해결] 들여쓰기 에러 해결완료. st.expander 블록 밖, main level로 위치시켰습니다.
+    # 💡 [문제 해결] 9일차에서 발생한 IndentationError 완벽 해결 완료.
+    # FAQs와 expander 블록 밖, main level로 위치시켰습니다.
     prompt_input = st.chat_input("질문을 입력하세요... (예: 사진 속 해충 뭐고 얼마야? 또는 성수동 상권 알려줘)")
     
     user_prompt = selected_faq if selected_faq else prompt_input
@@ -533,10 +546,10 @@ if "GEMINI_API_KEY" in st.secrets:
         # API 호출 전 시스템 프롬프트 확정 (💡 고도화 로직 주입)
         final_system_instruction = base_instruction
         
-        # 💡 [RAG 핵심] 학습된 문서 데이터가 있다면, AI 프롬프트 하단에 '학습 내용'으로 주입
+        # 💡 [핵심] 통합 학습된 문서 데이터가 있다면, AI 프롬프트 하단에 '학습 내용'으로 주입 (누적 통합본 전송)
         if role_option == "견적 & 요금 비교 전문가 (학습 문서 기반 Pro)" and knowledge_context:
             final_system_instruction += (
-                f"\n\n[업로드된 학습 문서 데이터 ({learned_filename})]\n"
+                f"\n\n[업로드된 전체 통합 학습 문서 데이터 ({len(learned_files_list)}건 통합본)]\n"
                 "가장 중요한 정보입니다. 답변 시 반드시 이 내용 안에서만 찾고 3번 점검하세요:\n\n"
                 f"{knowledge_context}"
             )
@@ -548,7 +561,7 @@ if "GEMINI_API_KEY" in st.secrets:
 
         with st.chat_message("assistant"):
             try:
-                # 💡 [고도화] 최신 Gemini 1.5 Pro 모델 사용으로 처리 능력 극대화
+                # 💡 [고도화] 최신 Gemini 1.5 Pro 모델 사용으로 초대형 컨텍스트 처리 능력 극대화
                 chat = client.chats.create(
                     model="gemini-1.5-pro-latest", 
                     config=types.GenerateContentConfig(
@@ -588,7 +601,7 @@ if "GEMINI_API_KEY" in st.secrets:
                 try:
                     recent_chat = st.session_state.messages[-1]["content"]
                     
-                    # 💡 [고도화 프롬프트 추가] 3-Step 점검 결과를 카톡 요약에도 반영하도록 요청
+                    # [고도화 프롬프트 추가] 3-Step 점검 결과를 카톡 요약에도 반영하도록 요청
                     summary_prompt = (
                         f"다음 견적 상담 내용을 바탕으로 고객에게 카카오톡으로 전달할 "
                         f"친절하고 정중한 요약 메시지를 작성해 줘.\n"
@@ -659,8 +672,8 @@ if "GEMINI_API_KEY" in st.secrets:
         with st.form("sales_log_form", clear_on_submit=True):
             col_a, col_b = st.columns(2)
             with col_a:
-                m_name = st.text_input("담당 플래너 이름 * (예: 홍길동)")
-                c_name = st.text_input("방문 매장/고객명 * (예: 대박식당)")
+                planner_input = st.text_input("담당 플래너 이름 * (예: 홍길동)")
+                client_input = st.text_input("방문 매장/고객명 * (예: 대박식당)")
                 p_deal = st.text_input("제안 서비스 및 견적가 (예: 방제+바이러스 결합 월 65,000원)")
             with col_b:
                 eq_status = st.selectbox("🎁 체험장비 설치 여부", ["미설치", "설치 완료"])
@@ -670,9 +683,9 @@ if "GEMINI_API_KEY" in st.secrets:
                 
             submit_log = st.form_submit_button("💾 영업일지 저장 및 대시보드 반영하기", use_container_width=True)
             if submit_log:
-                if m_name and c_name:
+                if planner_input and client_input:
                     with st.spinner("영업일지 저장 중..."):
-                        save_sales_log(m_name, c_name, p_deal, eq_status, eq_item, reaction, memo)
+                        save_sales_log(planner_input, client_input, p_deal, eq_status, eq_item, reaction, memo)
                         st.toast("✅ 영업일지 저장 완료!", icon="🎉")
                         st.rerun()
                 else:
