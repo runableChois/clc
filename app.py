@@ -100,17 +100,25 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 카카오 지도 API 실시간 매장 검색 함수 (키 내장)
+# 2. 카카오 지도 API 실시간 매장 검색 함수 (키워드 자동 정제)
 # ==========================================
 def search_kakao_local_stores(query_text):
     """카카오 지도 REST API를 활용하여 실시간 건물 내 점포 리스트 추출"""
-    # Secrets 설정이 있으면 우선 사용하고, 없으면 발급받으신 키를 기본값으로 자동 적용
     kakao_key = st.secrets.get("KAKAO_REST_API_KEY", "4b59cf7aff54ff6e7b451b761d5befaf").strip()
     if not kakao_key:
         return None
     
+    # 긴 질문 문장에서 카카오 검색용 키워드만 정제 (장소/건물명 추출)
+    clean_query = query_text
+    for stop_word in ["입점 매장", "입점매장", "매장 리스트", "점포 리스트", "상권", "특징", "전략", "분석해줘", "알려줘", "3일 체험", "3일체험", "추천", "침투", "포진 업종", "골든타임", "네이버 지도 주소"]:
+        clean_query = clean_query.replace(stop_word, "")
+    clean_query = clean_query.strip()
+    
+    # 불필요한 서술어가 남은 경우 첫 단어 2~3개 위주로 1차 키워드 설정
+    search_keyword = clean_query if clean_query else query_text.split()[0]
+
     try:
-        encoded_query = urllib.parse.quote(query_text)
+        encoded_query = urllib.parse.quote(search_keyword)
         url = f"https://dapi.kakao.com/v2/local/search/keyword.json?query={encoded_query}&size=15"
         req = urllib.request.Request(url)
         req.add_header("Authorization", f"KakaoAK {kakao_key}")
@@ -119,6 +127,17 @@ def search_kakao_local_stores(query_text):
             res_data = json.loads(response.read().decode('utf-8'))
             documents = res_data.get('documents', [])
             
+            # 만약 정제된 키워드로 검색 결과가 없으면, 원본 질문의 첫 단어(지역/건물명)로 2차 시도
+            if not documents and len(query_text.split()) > 0:
+                first_word = query_text.split()[0]
+                encoded_fb = urllib.parse.quote(first_word)
+                url_fb = f"https://dapi.kakao.com/v2/local/search/keyword.json?query={encoded_fb}&size=15"
+                req_fb = urllib.request.Request(url_fb)
+                req_fb.add_header("Authorization", f"KakaoAK {kakao_key}")
+                with urllib.request.urlopen(req_fb) as res_fb_obj:
+                    res_fb_data = json.loads(res_fb_obj.read().decode('utf-8'))
+                    documents = res_fb_data.get('documents', [])
+
             stores_summary = []
             for doc in documents:
                 place_name = doc.get('place_name', '')
@@ -157,8 +176,8 @@ CESCO_MASTER_SYSTEM_INSTRUCTION = """
 [플래너 질문 유형별 응답 작성 규칙]
 
 1. 📍 특정 상권 / 지역 / 건물 / 주소 영업 문의 시:
-   - 제공된 실시간 입점 점포 리스트(또는 상권 정보)를 기반으로 아래 5단계 실전 영업 타겟 리포트를 작성하세요:
-     ① 🏢 건물/상권 입점 점포 리스트 및 3일 체험 우선 추천 타겟 (업종별 매칭)
+   - 제공된 실시간 입점 점포 리스트를 100% 활용하여 아래 5단계 실전 영업 타겟 리포트를 작성하세요:
+     ① 🏢 [카카오 지도 실시간 입점 매장 분석] 수집된 실제 매장명들을 나열하고 업종별 3일 체험 추천 타겟 선정
      ② ⏰ 업종별 사장님 상주 '골든타임' 시간대 (뷰티 10~11시반, 외식 14시반~16시반, 학원 13~15시 등)
      ③ 📍 정확한 도로명 주소 및 네이버/카카오 지도 길찾기 링크 작성
         (네이버 지도 URL: [📍 네이버 지도로 위치 보기](https://map.naver.com/v5/search/상호명또는주소))
@@ -387,7 +406,7 @@ def save_equipment_inventory(df):
 # ==========================================
 with st.sidebar:
     st.header("⚙️ 세스코 영업지원 센터")
-    st.success("🤖 **카카오 지도 실시간 연동 완료**")
+    st.success("🤖 **카카오 지도 실시간 연동 가동 중**")
     st.caption("질문, 건물주소, 사진, 거절 대응 등 무엇이든 입력하면 AI가 카카오 지도와 연동하여 답변합니다.")
 
     st.divider()
@@ -595,17 +614,17 @@ if "GEMINI_API_KEY" in st.secrets:
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        if st.button("📌 파주 야당역/운정 상권", use_container_width=True):
-            selected_faq = "파주 야당역 B동 상가 건물 입점 매장 리스트와 3일 체험 타겟 세스코 상품, 골든타임 동선을 알려줘."
+        if st.button("📌 파주 야당역 상권", use_container_width=True):
+            selected_faq = "파주 야당역"
     with col2:
-        if st.button("📌 김포 구래동/운양동 상권", use_container_width=True):
-            selected_faq = "김포 구래동 24시 외식 상가 입점 건물 매장 리스트와 3일 체험 제안 전략을 분석해줘."
+        if st.button("📌 김포 구래동 상권", use_container_width=True):
+            selected_faq = "김포 구래동"
     with col3:
-        if st.button("📌 검단신도시 아라동 상권", use_container_width=True):
-            selected_faq = "인천 검단신도시(아라동) M타워 신규 입주 매장 리스트와 3일 체험 타겟 피칭 전략을 알려줘."
+        if st.button("📌 검단신도시 아라동", use_container_width=True):
+            selected_faq = "검단신도시 아라동"
     with col4:
-        if st.button("📌 고양 라페스타 B동 상권", use_container_width=True):
-            selected_faq = "고양 라페스타 B동 입점 매장 리스트와 층별 업종, 에어퍼퓸/에어제닉 3일 체험 침투 전략을 분석해줘."
+        if st.button("📌 고양 라페스타 B동", use_container_width=True):
+            selected_faq = "라페스타 B동"
 
     st.write("---")
     
@@ -615,7 +634,7 @@ if "GEMINI_API_KEY" in st.secrets:
         if uploaded_img:
             st.image(uploaded_img, caption="첨부된 현장 사진 진단 준비 완료", width=250)
 
-    prompt_input = st.chat_input("건물명/주소를 입력하세요... (예: 라페스타 B동, 또는 파주 야당역 CGV타워 입점 점포 알려줘)")
+    prompt_input = st.chat_input("건물명/주소를 입력하세요... (예: 라페스타 B동, 또는 야당역 CGV타워)")
     
     # 거절 반박 퀵카드 -> 퀵 버튼 -> 입력창 순 적용
     if quick_rejection_prompt:
@@ -635,6 +654,11 @@ if "GEMINI_API_KEY" in st.secrets:
         real_stores_data = None
         if not quick_rejection_prompt and not uploaded_img:
             real_stores_data = search_kakao_local_stores(user_prompt)
+
+        # 🔥 카카오 지도 실시간 검색 결과가 있을 경우 화면상에 명확히 표로 표출
+        if real_stores_data and len(real_stores_data) > 0:
+            with st.expander(f"📍 **카카오 지도 실시간 검색 매장 리스트 ({len(real_stores_data)}건 수집됨)**", expanded=True):
+                st.dataframe(pd.DataFrame(real_stores_data)[["상호명", "업종", "주소", "전화번호"]], use_container_width=True)
 
         history = []
         for msg in st.session_state.messages[:-1]:
@@ -661,12 +685,13 @@ if "GEMINI_API_KEY" in st.secrets:
         else:
             final_system_instruction = CESCO_MASTER_SYSTEM_INSTRUCTION
             
-            # 카카오 지도 실시간 데이터가 수집되었을 경우 AI에게 전달
-            if real_stores_data:
+            # 카카오 지도 실시간 데이터가 수집되었을 경우 AI에게 강제 반영 지침 전달
+            if real_stores_data and len(real_stores_data) > 0:
                 stores_text_list = json.dumps(real_stores_data, ensure_ascii=False, indent=2)
                 final_system_instruction += (
-                    f"\n\n[실시간 지도 API 수집 입점 매장 데이터 ({len(real_stores_data)}건)]\n"
-                    "카카오 지도에서 수집된 실제 매장 리스트입니다. 이 매장들을 바탕으로 3일 체험 타겟팅 리포트를 작성하세요:\n"
+                    f"\n\n[★필수 반영★ 카카오 지도 실시간 수집 실제 매장 리스트 ({len(real_stores_data)}건)]\n"
+                    "아래는 카카오 지도 API에서 방금 실시간으로 가져온 실제 입점 매장 데이터입니다.\n"
+                    "다른 가짜 매장을 지어내지 말고, 절대로 추정하지 마세요. 답변 작성 시 **오직 아래 리스트에 있는 실제 [상호명, 업종, 주소]만을 100% 사용하여** 3일 체험 제안 리포트와 요약표를 작성하세요:\n"
                     f"{stores_text_list}"
                 )
 
