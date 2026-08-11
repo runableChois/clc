@@ -155,7 +155,7 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. 마케팅 후킹 & Before-After 이미지 카드 생성 엔진
+# 3. [원복 완료] 이전 버전의 깔끔한 제안서 이미지 카드 생성 엔진
 # ==========================================
 FONT_PATH = "NanumGothic-Bold.ttf"
 
@@ -167,72 +167,60 @@ def ensure_korean_font():
         except Exception as e:
             st.error(f"폰트 다운로드 실패: {e}")
 
-def create_marketing_hook_card_image(store_name, industry, before_text, after_text, solution_text):
+def create_proposal_card_image(title, subtitle, sections):
     ensure_korean_font()
     width, height = 1200, 1600
-    img = Image.new('RGB', (width, height), color='#f1f5f9')
+    img = Image.new('RGB', (width, height), color='#f8fafc')
     draw = ImageDraw.Draw(img)
     
     try:
-        font_brand = ImageFont.truetype(FONT_PATH, 42)
+        font_brand = ImageFont.truetype(FONT_PATH, 44)
         font_subhead = ImageFont.truetype(FONT_PATH, 22)
-        font_hook = ImageFont.truetype(FONT_PATH, 34)
-        font_box_title = ImageFont.truetype(FONT_PATH, 28)
-        font_body = ImageFont.truetype(FONT_PATH, 22)
+        font_title = ImageFont.truetype(FONT_PATH, 32)
+        font_sect_title = ImageFont.truetype(FONT_PATH, 26)
+        font_body = ImageFont.truetype(FONT_PATH, 20)
         font_footer = ImageFont.truetype(FONT_PATH, 20)
     except Exception:
-        font_brand = font_subhead = font_hook = font_box_title = font_body = font_footer = ImageFont.load_default()
+        font_brand = font_subhead = font_title = font_sect_title = font_body = font_footer = ImageFont.load_default()
 
     draw.rectangle([(0, 0), (width, 180)], fill='#003b7a')
     draw.rectangle([(0, 170), (width, 180)], fill='#00a3e0') 
-    draw.text((60, 40), "🌿 CESCO 프리미엄 위생 솔루션", fill='#ffffff', font=font_brand)
-    draw.text((60, 110), f"대상 사업장: {store_name} ({industry})", fill='#dbeafe', font=font_subhead)
+    draw.text((60, 40), "🌿 CESCO 프리미엄 솔루션 제안서", fill='#ffffff', font=font_brand)
+    draw.text((60, 110), "고객 맞춤형 위생·환경 케어 제안 시스템", fill='#dbeafe', font=font_subhead)
 
-    draw.rectangle([(50, 210), (width - 50, 350)], fill='#ffffff', outline='#0284c7', width=3)
-    draw.text((80, 235), "🔥 사장님, 악성 리뷰 하나로 무너지는", fill='#0f172a', font=font_hook)
-    draw.text((80, 285), "우리 매장 매출을 완벽히 지켜드립니다!", fill='#0284c7', font=font_hook)
+    draw.rectangle([(50, 210), (width - 50, 330)], fill='#ffffff', outline='#cbd5e1', width=2)
+    draw.text((80, 235), title[:35], fill='#0f172a', font=font_title)
+    draw.text((80, 285), subtitle[:45], fill='#64748b', font=font_body)
 
-    draw.rectangle([(50, 390), (width - 50, 680)], fill='#fef2f2', outline='#fca5a5', width=2)
-    draw.text((80, 420), "❌ [BEFORE] 현재 매장 환경의 보이지 않는 위험", fill='#991b1b', font=font_box_title)
-    
-    b_lines = []
-    for p in before_text.split('\n'):
-        for i in range(0, len(p), 42):
-            b_lines.append(p[i:i+42])
-    
-    b_y = 475
-    for line in b_lines[:6]:
-        draw.text((80, b_y), line, fill='#7f1d1d', font=font_body)
-        b_y += 32
-
-    draw.rectangle([(50, 720), (width - 50, 1010)], fill='#f0fdf4', outline='#86efac', width=2)
-    draw.text((80, 750), "✨ [AFTER] 세스코 프리미엄 케어 도입 후 변화", fill='#166534', font=font_box_title)
-    
-    a_lines = []
-    for p in after_text.split('\n'):
-        for i in range(0, len(p), 42):
-            a_lines.append(p[i:i+42])
+    y_offset = 360
+    for sect in sections[:3]:
+        sec_title = sect.get("title", "")
+        sec_content = sect.get("content", "")
+        
+        lines = []
+        for paragraph in sec_content.split('\n'):
+            if not paragraph.strip():
+                lines.append("")
+                continue
+            for i in range(0, len(paragraph), 45):
+                lines.append(paragraph[i:i+45])
+                
+        box_height = max(180, 70 + len(lines) * 28)
+        
+        draw.rectangle([(50, y_offset), (width - 50, y_offset + box_height)], fill='#ffffff', outline='#e2e8f0', width=2)
+        draw.text((80, y_offset + 22), sec_title, fill='#003b7a', font=font_sect_title)
+        
+        line_y = y_offset + 65
+        for line in lines:
+            if line_y > y_offset + box_height - 20:
+                break
+            draw.text((80, line_y), line, fill='#334155', font=font_body)
+            line_y += 28
             
-    a_y = 805
-    for line in a_lines[:6]:
-        draw.text((80, a_y), line, fill='#14532d', font=font_body)
-        a_y += 32
-
-    draw.rectangle([(50, 1050), (width - 50, 1450)], fill='#eff6ff', outline='#3b82f6', width=2)
-    draw.text((80, 1080), "🎁 단 3일간 1원도 안 받는 '무상 체험' 특전", fill='#1e40af', font=font_box_title)
-    
-    s_lines = []
-    for p in solution_text.split('\n'):
-        for i in range(0, len(p), 42):
-            s_lines.append(p[i:i+42])
-            
-    s_y = 1135
-    for line in s_lines[:8]:
-        draw.text((80, s_y), line, fill='#1e293b', font=font_body)
-        s_y += 32
+        y_offset += box_height + 20
 
     draw.rectangle([(0, height - 100), (width, height)], fill='#0f172a')
-    draw.text((60, height - 60), "📞 세스코 공식 담당 플래너 | 지금 바로 상담 신청하세요", fill='#ffffff', font=font_footer)
+    draw.text((60, height - 60), "📞 세스코 공식 담당 플래너 | 3일 무상 체험 서비스 제공", fill='#ffffff', font=font_footer)
     
     buf = io.BytesIO()
     img.save(buf, format='PNG')
@@ -718,11 +706,11 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 [고도화] AI 자동 완성형 카톡 제안서 & 마케팅 이미지 카드 생성 센터
+    # 📱 [원복 완료] AI 자동 완성형 카톡 제안서 & 깔끔한 제안서 이미지 카드 생성 센터
     # ==========================================
     st.write("---")
-    st.subheader("📋 AI 맞춤형 제안서 및 마케팅 이미지 카드 생성 센터")
-    st.caption("상호명과 업종만 입력하시면, 제미나이 AI가 사업장 맞춤형 Before/After 및 추천 솔루션을 자동으로 작성하여 텍스트와 이미지 카드를 동시에 만들어 드립니다.")
+    st.subheader("📋 AI 맞춤형 제안서 및 이미지 카드 생성 센터")
+    st.caption("상호명과 업종만 입력하시면, 제미나이 AI가 사업장 맞춤형 진단 요약 및 추천 솔루션을 자동으로 작성하여 텍스트와 이미지 카드를 동시에 만들어 드립니다.")
     
     proposal_tab1, proposal_tab2 = st.tabs(["📱 카톡 1페이지 요약 제안서", "📄 특정 제품 1장 상세 제안서"])
     
@@ -735,7 +723,7 @@ if "GEMINI_API_KEY" in st.secrets:
             with c2:
                 auto_loc = st.text_input("지역 / 상권", placeholder="예: 파주 야당역 상권")
                 
-            submitted_auto_kakao = st.form_submit_button("✨ AI 맞춤형 카톡 제안서 & 마케팅 카드 자동 생성하기", use_container_width=True)
+            submitted_auto_kakao = st.form_submit_button("✨ AI 맞춤형 카톡 제안서 & 이미지 카드 자동 생성하기", use_container_width=True)
             
         if submitted_auto_kakao:
             if not auto_store or not auto_ind:
@@ -746,9 +734,9 @@ if "GEMINI_API_KEY" in st.secrets:
                         f"세스코 영업 플래너가 '{auto_store}'({auto_ind}, 지역: {auto_loc}) 사장님에게 보낼 카카오톡 제안서 내용을 작성해 주세요.\n"
                         f"아래 JSON 형식으로만 응답해 주세요:\n"
                         f"{{\n"
-                        f'  "before_text": "주방 배수구 악취 및 날벌레 유입 위험, 홀 공기 답답함으로 고객 컴플레인 유발 요소 존재",\n'
-                        f'  "after_text": "24시간 완벽 방역으로 해충 제로 달성, 은은하고 고급스러운 시그니처 향기로 매장 평점 상승",\n'
-                        f'  "solution_text": "1️⃣ 블루스캔 해충 방제 서비스\\n2️⃣ 세스코 에어제닉 향기 케어\\n🎁 3일 무상 체험 즉시 적용"\n'
+                        f'  "summary_text": "주방 배수구 악취 차단 및 홀 공기질 향상을 위한 통합 위생 케어 제안",\n'
+                        f'  "solution_text": "1️⃣ 블루스캔 해충 방제 서비스\\n2️⃣ 세스코 에어제닉 향기 케어\\n🎁 3일 무상 체험 즉시 적용",\n'
+                        f'  "benefit_text": "설치비 전액 면제 및 3일 무료 체험 후 결정"\n'
                         f"}}\n"
                     )
                     chat_ai = client.chats.create(model="gemini-3-flash-preview")
@@ -758,17 +746,17 @@ if "GEMINI_API_KEY" in st.secrets:
                         json_match = re.search(r'\{.*\}', ai_res.text, re.DOTALL)
                         if json_match:
                             parsed_data = json.loads(json_match.group())
-                            ai_before = parsed_data.get("before_text", "")
-                            ai_after = parsed_data.get("after_text", "")
+                            ai_sum = parsed_data.get("summary_text", "")
                             ai_sol = parsed_data.get("solution_text", "")
+                            ai_ben = parsed_data.get("benefit_text", "")
                         else:
-                            ai_before = "해충 및 공기질 관리 미흡으로 인한 위생 신뢰도 하락 우려"
-                            ai_after = "세스코 케어 도입으로 완벽한 위생 안심존 구축 및 단골 고객 증가"
-                            ai_sol = "1️⃣ 첨단 해충 방제 서비스\n2️⃣ 공기살균기 및 향기 케어\n🎁 3일 무상 체험 제공"
+                            ai_sum = "즉각적인 방역 및 공기 케어 통합 솔루션 필요"
+                            ai_sol = "1️⃣ 첨단 해충 방제 서비스\n2️⃣ 공기살균기 및 향기 케어"
+                            ai_ben = "3일 무상 체험 서비스 적용"
                     except:
-                        ai_before = "해충 및 위생 환경 관리 필요"
-                        ai_after = "세스코 프리미엄 케어로 매출 방지 및 이미지 제고"
-                        ai_sol = "1️⃣ 종합 방제 솔루션\n2️⃣ 에어제닉 향기 케어\n🎁 3일 무상 체험"
+                        ai_sum = "맞춤형 위생 환경 솔루션 필요"
+                        ai_sol = "1️⃣ 종합 방제 솔루션\n2️⃣ 에어제닉 향기 케어"
+                        ai_ben = "3일 무상 체험 제공"
 
                     kakao_formatted_text = f"""━━━━━━━━━━━━━━━━━━━━
 🌿 [세스코(CESCO) 프리미엄 위생·환경 솔루션 제안서]
@@ -778,43 +766,46 @@ if "GEMINI_API_KEY" in st.secrets:
 '{auto_store}' 대표님, 사업장에 가장 최적화된 맞춤형 위생 환경 솔루션을 제안드립니다. 🔬✨
 
 ━━━━━━━━━━━━━━━━━━━━
-📍 1. 사업장 진단 요약
+📍 1. 상권 및 사업장 진단 요약
 ━━━━━━━━━━━━━━━━━━━━
 • 위치 및 상권 특성: {auto_loc}
-• 업종({auto_ind}) 진단 결과: 즉각적인 방역 및 공기 케어 통합 솔루션 필요
+• 업종({auto_ind}) 진단 결과: {ai_sum}
 
 ━━━━━━━━━━━━━━━━━━━━
-⚖️ 2. Before & After 효과
-━━━━━━━━━━━━━━━━━━━━
-• [현재 리스크]: {ai_before}
-• [도입 후 변화]: {ai_after}
-
-━━━━━━━━━━━━━━━━━━━━
-🛡️ 3. 추천 맞춤형 솔루션 및 특전
+🛡️ 2. 추천 맞춤형 솔루션
 ━━━━━━━━━━━━━━━━━━━━
 {ai_sol}
+
+━━━━━━━━━━━━━━━━━━━━
+🎁 3. 특별 혜택 및 진행 안내
+━━━━━━━━━━━━━━━━━━━━
+• {ai_ben}
+• 설치 일정 및 피드백: 담당 플래너와 협의 후 확정
 
 ━━━━━━━━━━━━━━━━━━━━
 💡 "깨끗하고 안전한 공간은 고객의 발걸음을 머물게 합니다."
 지금 바로 세스코 프리미엄 케어를 경험해보세요!
 ━━━━━━━━━━━━━━━━━━━━"""
                     
-                    st.success("✅ AI가 자동으로 완성한 고품격 제안서와 마케팅 카드가 준비되었습니다!")
+                    st.success("✅ AI가 자동으로 완성한 고품격 제안서와 이미지 카드가 준비되었습니다!")
                     st.code(kakao_formatted_text, language="markdown")
                     
-                    img_bytes = create_marketing_hook_card_image(
-                        store_name=auto_store,
-                        industry=auto_ind,
-                        before_text=ai_before,
-                        after_text=ai_after,
-                        solution_text=ai_sol
+                    sections_data = [
+                        {"title": "1. 사업장 진단 요약", "content": f"위치: {auto_loc}\n업종: {auto_ind}\n진단: {ai_sum}"},
+                        {"title": "2. 맞춤형 추천 솔루션", "content": ai_sol},
+                        {"title": "3. 특별 혜택 및 안내", "content": f"혜택: {ai_ben}\n설치 일정: 담당 플래너 협의 후 진행"}
+                    ]
+                    img_bytes = create_proposal_card_image(
+                        title=f"'{auto_store}' 맞춤 위생 솔루션",
+                        subtitle=f"업종: {auto_ind} | 상권: {auto_loc}",
+                        sections=sections_data
                     )
                     
-                    st.image(img_bytes, caption="모바일 공유용 마케팅 비포-애프터 카드 (1200x1600)", use_container_width=True)
+                    st.image(img_bytes, caption="모바일 공유용 제안서 이미지 카드 (1200x1600)", use_container_width=True)
                     st.download_button(
-                        label="📥 마케팅 이미지 카드 다운로드 (.png)",
+                        label="📥 제안서 이미지 카드 다운로드 (.png)",
                         data=img_bytes,
-                        file_name=f"CESCO_마케팅카드_{auto_store}.png",
+                        file_name=f"CESCO_제안서_{auto_store}.png",
                         mime="image/png",
                         use_container_width=True
                     )
@@ -824,7 +815,7 @@ if "GEMINI_API_KEY" in st.secrets:
             auto_prod_name = st.text_input("제안할 세스코 제품명", placeholder="예: 세스코 공기살균기 센스미 / 에어제닉")
             auto_prod_target = st.text_input("타겟 고객 업종", placeholder="예: 대형 병원 로비, 피부과 메디컬 뷰티숍")
             
-            submitted_auto_prod = st.form_submit_button("📄 AI 맞춤형 제품 제안서 & 마케팅 카드 자동 생성하기", use_container_width=True)
+            submitted_auto_prod = st.form_submit_button("📄 AI 맞춤형 제품 제안서 & 이미지 카드 자동 생성하기", use_container_width=True)
             
         if submitted_auto_prod:
             if not auto_prod_name or not auto_prod_target:
@@ -835,9 +826,9 @@ if "GEMINI_API_KEY" in st.secrets:
                         f"세스코 영업사원이 '{auto_prod_target}' 업종 고객에게 제시할 '{auto_prod_name}' 제품 제안서 내용을 작성해 주세요.\n"
                         f"아래 JSON 형식으로만 응답해 주세요:\n"
                         f"{{\n"
-                        f'  "before_text": "밀폐된 공간의 유해 세균 및 바이러스 확산 위험,  답답한 공기질",\n'
-                        f'  "after_text": "UV-C 파워 살균으로 부유 세균 99.9% 제거, 24시간 안심 청정 존 완성",\n'
-                        f'  "solution_text": "제품명: {auto_prod_name}\\n핵심스펙: S형 유로 설계 및 강력 살균\\n🎁 3일 무상 체험 즉시 적용"\n'
+                        f'  "overview_text": "대상 업종 맞춤형 프리미엄 위생 및 공기질 개선 케어",\n'
+                        f'  "spec_text": "UV-C 파워 살균 및 S형 유로 설계로 부유 세균 99.9% 제거",\n'
+                        f'  "benefit_text": "100% 본사 지원 3일 무상 체험 서비스 즉시 적용"\n'
                         f"}}\n"
                     )
                     chat_prod = client.chats.create(model="gemini-3-flash-preview")
@@ -847,33 +838,36 @@ if "GEMINI_API_KEY" in st.secrets:
                         json_match = re.search(r'\{.*\}', prod_res.text, re.DOTALL)
                         if json_match:
                             parsed_p = json.loads(json_match.group())
-                            p_before = parsed_p.get("before_text", "")
-                            p_after = parsed_p.get("after_text", "")
-                            p_sol = parsed_p.get("solution_text", "")
+                            p_over = parsed_p.get("overview_text", "")
+                            p_spec = parsed_p.get("spec_text", "")
+                            p_ben = parsed_p.get("benefit_text", "")
                         else:
-                            p_before = "유해 세균 및 공기 오염 위험"
-                            p_after = "강력한 살균 및 위생 환경 구축"
-                            p_sol = f"제품: {auto_prod_name}\n🎁 3일 무상 체험 제공"
+                            p_over = f"대상 업종: {auto_prod_target}"
+                            p_spec = f"제품명: {auto_prod_name} 핵심 스펙"
+                            p_ben = "3일 무상 체험 제공"
                     except:
-                        p_before = "위생 및 공기질 관리 필요"
-                        p_after = "세스코 프리미엄 살균 케어 적용"
-                        p_sol = f"제품: {auto_prod_name}"
+                        p_over = f"제안 제품: {auto_prod_name}"
+                        p_spec = "최첨단 위생 살균 케어"
+                        p_ben = "3일 무상 체험 제공"
 
-                    st.success("✅ AI 제품 제안서와 마케팅 카드가 완성되었습니다!")
+                    st.success("✅ AI 제품 제안서와 이미지 카드가 완성되었습니다!")
                     
-                    prod_img_bytes = create_marketing_hook_card_image(
-                        store_name=auto_prod_target,
-                        industry=auto_prod_name,
-                        before_text=p_before,
-                        after_text=p_after,
-                        solution_text=p_sol
+                    prod_sections = [
+                        {"title": "1. 제안 개요 및 도입 배경", "content": f"타겟 업종: {auto_prod_target}\n개요: {p_over}"},
+                        {"title": "2. 핵심 기술 스펙 & 차별점", "content": p_spec},
+                        {"title": "3. 3일 무상 체험 및 도입 안내", "content": p_ben}
+                    ]
+                    prod_img_bytes = create_proposal_card_image(
+                        title=f"{auto_prod_name} 맞춤 제안서",
+                        subtitle=f"타겟 업종: {auto_prod_target}",
+                        sections=prod_sections
                     )
                     
-                    st.image(prod_img_bytes, caption="모바일 공유용 제품 마케팅 카드 (1200x1600)", use_container_width=True)
+                    st.image(prod_img_bytes, caption="모바일 공유용 제품 제안서 이미지 카드 (1200x1600)", use_container_width=True)
                     st.download_button(
-                        label="📥 제품 마케팅 카드 다운로드 (.png)",
+                        label="📥 제품 제안서 이미지 카드 다운로드 (.png)",
                         data=prod_img_bytes,
-                        file_name=f"CESCO_제품마케팅_{auto_prod_name}.png",
+                        file_name=f"CESCO_제품제안서_{auto_prod_name}.png",
                         mime="image/png",
                         use_container_width=True
                     )
