@@ -2,6 +2,7 @@ import io
 import json
 import os
 import re
+import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 
@@ -99,7 +100,46 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 통합 마스터 시스템 지침 & 제품 지식 베이스
+# 2. 카카오 지도 API 실시간 매장 검색 함수 (키 내장)
+# ==========================================
+def search_kakao_local_stores(query_text):
+    """카카오 지도 REST API를 활용하여 실시간 건물 내 점포 리스트 추출"""
+    # Secrets 설정이 있으면 우선 사용하고, 없으면 발급받으신 키를 기본값으로 자동 적용
+    kakao_key = st.secrets.get("KAKAO_REST_API_KEY", "4b59cf7aff54ff6e7b451b761d5befaf").strip()
+    if not kakao_key:
+        return None
+    
+    try:
+        encoded_query = urllib.parse.quote(query_text)
+        url = f"https://dapi.kakao.com/v2/local/search/keyword.json?query={encoded_query}&size=15"
+        req = urllib.request.Request(url)
+        req.add_header("Authorization", f"KakaoAK {kakao_key}")
+        
+        with urllib.request.urlopen(req) as response:
+            res_data = json.loads(response.read().decode('utf-8'))
+            documents = res_data.get('documents', [])
+            
+            stores_summary = []
+            for doc in documents:
+                place_name = doc.get('place_name', '')
+                category = doc.get('category_name', '')
+                address = doc.get('road_address_name') or doc.get('address_name', '')
+                phone = doc.get('phone', '')
+                place_url = doc.get('place_url', '')
+                
+                stores_summary.append({
+                    "상호명": place_name,
+                    "업종": category.split(">")[-1].strip() if ">" in category else category,
+                    "주소": address,
+                    "전화번호": phone if phone else "정보없음",
+                    "카카오지도URL": place_url
+                })
+            return stores_summary
+    except Exception as e:
+        return None
+
+# ==========================================
+# 3. 통합 마스터 시스템 지침 & 제품 지식 베이스
 # ==========================================
 CESCO_MASTER_SYSTEM_INSTRUCTION = """
 당신은 세스코(CESCO) 경기서북부(고양, 파주, 김포, 인천 검단) 영업 플래너를 전담 지원하는 '올인원 현장 영업 지원 마스터 AI'입니다.
@@ -116,15 +156,14 @@ CESCO_MASTER_SYSTEM_INSTRUCTION = """
 
 [플래너 질문 유형별 응답 작성 규칙]
 
-1. 📍 특정 상권 / 지역 / 건물 / 장비 방문 영업 문의 시:
-   - 아래 6단계 프레임워크에 따라 상세 지침서 작성:
-     ① 🎯 보유 장비/제품 맞춤 타겟 업종 매칭 (3일 무료 체험 기준)
-     ② ⏰ 업종별 사장님 상주 '골든타임' 시간대
-     ③ 📍 건물별 입점 업종 분포, 정확한 도로명 주소 및 네이버 지도 URL 필수 작성
-        (URL 형식: [📍 네이버 지도로 위치 보기](https://map.naver.com/v5/search/건물명또는주소))
-     ④ 🛡️ '네이버 악성 리뷰 방지 & 매출 보호 ROI' 설득 논리 및 3일 체험 피칭 스크립트
-     ⑤ 💬 3일 차 피드백 요청 및 최종 계약 전환(Closing) 화법
-     ⑥ 📋 방문 구역 통합 요약표 [방문순서 | 건물명/동 | 대표 도로명주소 | 주요 입점 업종 & 골든타임 | 네이버 지도 바로가기]
+1. 📍 특정 상권 / 지역 / 건물 / 주소 영업 문의 시:
+   - 제공된 실시간 입점 점포 리스트(또는 상권 정보)를 기반으로 아래 5단계 실전 영업 타겟 리포트를 작성하세요:
+     ① 🏢 건물/상권 입점 점포 리스트 및 3일 체험 우선 추천 타겟 (업종별 매칭)
+     ② ⏰ 업종별 사장님 상주 '골든타임' 시간대 (뷰티 10~11시반, 외식 14시반~16시반, 학원 13~15시 등)
+     ③ 📍 정확한 도로명 주소 및 네이버/카카오 지도 길찾기 링크 작성
+        (네이버 지도 URL: [📍 네이버 지도로 위치 보기](https://map.naver.com/v5/search/상호명또는주소))
+     ④ 🛡️ '네이버 악성 리뷰 방지 & 매출 보호 ROI' 설득 논리 및 3일 무상 체험 피칭 스크립트
+     ⑤ 📋 영업 타겟 요약표 [상호명 | 대표 업종 | 추천 체험장비 | 점주 골든타임 | 네이버 지도 바로가기]
 
 2. 🔍 견적 / 요금 / 제품 단가 문의 시:
    - 업로드된 [학습 문서 데이터]가 있다면 최우선 참조.
@@ -135,7 +174,7 @@ CESCO_MASTER_SYSTEM_INSTRUCTION = """
 """
 
 # ==========================================
-# 3. 이미지 생성 엔진 (카톡 고화질 견적 카드용)
+# 4. 이미지 생성 엔진 (카톡 고화질 견적 카드용)
 # ==========================================
 FONT_PATH = "NanumGothic-Bold.ttf"
 
@@ -216,7 +255,7 @@ def create_high_res_quote_card(card_data):
     return buf.getvalue()
 
 # ==========================================
-# 4. 데이터 I/O 및 누적 문서 학습 (RAG) 함수
+# 5. 데이터 I/O 및 누적 문서 학습 (RAG) 함수
 # ==========================================
 KNOWLEDGE_BASE_PATH = "cesco_knowledge_base.txt"
 KNOWLEDGE_FILES_PATH = "cesco_knowledge_files_list.txt"
@@ -344,12 +383,12 @@ def save_equipment_inventory(df):
     df.to_csv(EQUIPMENT_LOG_PATH, index=False, encoding="utf-8-sig")
 
 # ==========================================
-# 5. 사이드바 UI (모드 선택 드롭다운 삭제로 깔끔화)
+# 6. 사이드바 UI
 # ==========================================
 with st.sidebar:
     st.header("⚙️ 세스코 영업지원 센터")
-    st.success("🤖 **올인원 스마트 AI 가동 중**")
-    st.caption("질문, 사진, 상권, 거절 대응 등 무엇이든 입력하면 AI가 의도를 자동 인식합니다.")
+    st.success("🤖 **카카오 지도 실시간 연동 완료**")
+    st.caption("질문, 건물주소, 사진, 거절 대응 등 무엇이든 입력하면 AI가 카카오 지도와 연동하여 답변합니다.")
 
     st.divider()
     st.subheader("📚 현재 AI 학습 문서 상태")
@@ -505,7 +544,7 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# 6. 메인 화면 & 챗봇 인터페이스
+# 7. 메인 화면 & 챗봇 인터페이스
 # ==========================================
 st.title("💼 우리 팀 세스코 영업지원 AI (Pro)")
 
@@ -557,16 +596,16 @@ if "GEMINI_API_KEY" in st.secrets:
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         if st.button("📌 파주 야당역/운정 상권", use_container_width=True):
-            selected_faq = "파주 야당역 음식점/유흥 상권 및 운정 신도시 상가의 특징, 포진 업종, 3일 체험 타겟 세스코 상품 및 골든타임 동선과 네이버 지도 주소를 알려줘."
+            selected_faq = "파주 야당역 B동 상가 건물 입점 매장 리스트와 3일 체험 타겟 세스코 상품, 골든타임 동선을 알려줘."
     with col2:
         if st.button("📌 김포 구래동/운양동 상권", use_container_width=True):
-            selected_faq = "김포 구래동 24시 외식 상권과 운양동 카페/병원 상권의 특성, 입점 건물 주소(네이버 지도), 3일 체험 제안 전략을 분석해줘."
+            selected_faq = "김포 구래동 24시 외식 상가 입점 건물 매장 리스트와 3일 체험 제안 전략을 분석해줘."
     with col3:
         if st.button("📌 검단신도시 아라동 상권", use_container_width=True):
-            selected_faq = "인천 검단신도시(아라동) 신규 입주 상가 건물들의 업종 특징, 네이버 지도 주소, 3일 체험 타겟 및 골든타임 피칭 전략을 알려줘."
+            selected_faq = "인천 검단신도시(아라동) M타워 신규 입주 매장 리스트와 3일 체험 타겟 피칭 전략을 알려줘."
     with col4:
-        if st.button("📌 고양 라페스타/삼송 상권", use_container_width=True):
-            selected_faq = "고양 라페스타 구상권과 삼송/덕은 신규 오피스 상권의 주요 건물별 입점 업종, 네이버 지도 주소, 에어퍼퓸/에어제닉 3일 체험 침투 전략을 분석해줘."
+        if st.button("📌 고양 라페스타 B동 상권", use_container_width=True):
+            selected_faq = "고양 라페스타 B동 입점 매장 리스트와 층별 업종, 에어퍼퓸/에어제닉 3일 체험 침투 전략을 분석해줘."
 
     st.write("---")
     
@@ -576,7 +615,7 @@ if "GEMINI_API_KEY" in st.secrets:
         if uploaded_img:
             st.image(uploaded_img, caption="첨부된 현장 사진 진단 준비 완료", width=250)
 
-    prompt_input = st.chat_input("질문을 입력하세요... (예: 라페스타 에어퍼퓸 3일 체험 어디가 좋아? 또는 견적 단가표 알려줘)")
+    prompt_input = st.chat_input("건물명/주소를 입력하세요... (예: 라페스타 B동, 또는 파주 야당역 CGV타워 입점 점포 알려줘)")
     
     # 거절 반박 퀵카드 -> 퀵 버튼 -> 입력창 순 적용
     if quick_rejection_prompt:
@@ -591,6 +630,11 @@ if "GEMINI_API_KEY" in st.secrets:
     if user_prompt:
         st.chat_message("user").markdown(user_prompt)
         st.session_state.messages.append({"role": "user", "content": user_prompt})
+
+        # 건물/주소 언급 시 카카오 지도 REST API 실시간 연동 검색
+        real_stores_data = None
+        if not quick_rejection_prompt and not uploaded_img:
+            real_stores_data = search_kakao_local_stores(user_prompt)
 
         history = []
         for msg in st.session_state.messages[:-1]:
@@ -610,16 +654,22 @@ if "GEMINI_API_KEY" in st.secrets:
                 "영업사원이 업로드한 현장 사진의 시각적 요소와 상황을 정밀 분석하여 반드시 아래 [AI 브리핑 리포트 출력 표준 규격] 4가지 항목으로 정리하여 답변해 주세요.\n\n"
                 "[AI 브리핑 리포트 출력 표준 규격]\n"
                 "1. [현장 진단 & 위험 요소 분석]\n"
-                "   - 공간 유형, 규모 추정, 위생/환경 위험 요소(공기 오염, 악취, 날벌레 유입, 화장실 습기/위생 등) 진단\n\n"
                 "2. [추천 제품 & 핵심 스펙]\n"
-                "   - 세스코 8대 제품 라인업 중 현장에 가장 적합한 제품 2~4개 선정 및 설치 위치, 핵심 스펙 요약\n\n"
                 "3. [현장 맞춤 설득 스크립트 (영업사원용)]\n"
-                "   - 해당 업주 맞춤 실전 오프닝 및 3일 무료 체험 권유 멘트\n\n"
-                "4. [추천 패키지 & 견적 포인트]\n"
-                "   - 제품 결합 패키지 추천 및 가치 제안(네이버 악성 리뷰 방지, 매장 브랜드 이미지 제고, ROI 등)"
+                "4. [추천 패키지 & 견적 포인트]"
             )
         else:
             final_system_instruction = CESCO_MASTER_SYSTEM_INSTRUCTION
+            
+            # 카카오 지도 실시간 데이터가 수집되었을 경우 AI에게 전달
+            if real_stores_data:
+                stores_text_list = json.dumps(real_stores_data, ensure_ascii=False, indent=2)
+                final_system_instruction += (
+                    f"\n\n[실시간 지도 API 수집 입점 매장 데이터 ({len(real_stores_data)}건)]\n"
+                    "카카오 지도에서 수집된 실제 매장 리스트입니다. 이 매장들을 바탕으로 3일 체험 타겟팅 리포트를 작성하세요:\n"
+                    f"{stores_text_list}"
+                )
+
             if knowledge_context:
                 final_system_instruction += (
                     f"\n\n[업로드된 전체 통합 학습 문서 데이터 ({len(learned_files_list)}건 통합본)]\n"
