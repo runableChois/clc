@@ -20,7 +20,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# 💡 [핵심] 왕관/배지 아이콘만 정밀 삭제하고 사이드바 메뉴 버튼은 보존하는 스크립트
+# 💡 Streamlit Cloud 배지/왕관 아이콘만 핀포인트 제거 스크립트
 components.html("""
 <script>
     function removeStreamlitBadgesOnly() {
@@ -52,7 +52,6 @@ components.html("""
 
 st.markdown("""
 <style>
-    /* 1. 불필요한 푸터 및 배지 숨기기 */
     footer {display: none !important; visibility: hidden !important;}
     #MainMenu {display: none !important;}
     .stAppDeployButton {display: none !important;}
@@ -60,13 +59,11 @@ st.markdown("""
     div[data-testid="stStatusWidget"] {display: none !important;}
     div[class*="viewerBadge"] {display: none !important;}
     
-    /* 2. 상단 헤더 투명화 & 좌측 상단 사이드바 열기 버튼 시각화 */
     div[data-testid="stHeader"] {
         background-color: transparent !important;
         z-index: 100 !important;
     }
     
-    /* 💡 [핵심] 좌측 상단 사이드바 열기/닫기 버튼 파란색 강조 및 터치 최적화 */
     [data-testid="collapsedControl"], [data-testid="stSidebarCollapseButton"] {
         display: flex !important;
         visibility: visible !important;
@@ -82,7 +79,6 @@ st.markdown("""
         color: #ffffff !important;
     }
 
-    /* 3. 메인 여백 모바일 최적화 */
     .main .block-container {
         padding-top: 2.5rem !important;
         padding-bottom: 2rem !important;
@@ -226,18 +222,22 @@ def delete_master_data():
     if os.path.exists(NAME_FILE_PATH):
         os.remove(NAME_FILE_PATH)
 
-def save_sales_log(member_name, client_name, proposed_deal, equipment_status, reaction, memo):
+def save_sales_log(member_name, client_name, proposed_deal, equipment_status, equipment_item, reaction, memo):
     new_data = pd.DataFrame([{
         "작성일시": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "담당팀원": member_name,
+        "담당플래너": member_name,
         "고객/매장명": client_name,
         "제안서비스/견적가": proposed_deal,
         "체험장비설치": equipment_status,
+        "설치장비품목": equipment_item if equipment_status == "설치 완료" else "-",
         "고객반응/상태": reaction,
         "영업메모": memo
     }])
     if os.path.exists(SALES_LOG_PATH):
         old_df = pd.read_csv(SALES_LOG_PATH)
+        # 하위 호환 컬럼 변경
+        if "담당팀원" in old_df.columns:
+            old_df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
         df = pd.concat([old_df, new_data], ignore_index=True)
     else:
         df = new_data
@@ -245,11 +245,14 @@ def save_sales_log(member_name, client_name, proposed_deal, equipment_status, re
 
 def load_equipment_inventory():
     if os.path.exists(EQUIPMENT_LOG_PATH):
-        return pd.read_csv(EQUIPMENT_LOG_PATH)
+        df = pd.read_csv(EQUIPMENT_LOG_PATH)
+        if "담당팀원" in df.columns:
+            df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
+        return df
     default_df = pd.DataFrame([
-        {"담당팀원": "홍길동", "보유대수": 5},
-        {"담당팀원": "김철수", "보유대수": 3},
-        {"담당팀원": "이영희", "보유대수": 4}
+        {"담당플래너": "홍길동", "보유대수": 5},
+        {"담당플래너": "김철수", "보유대수": 3},
+        {"담당플래너": "이영희", "보유대수": 4}
     ])
     default_df.to_csv(EQUIPMENT_LOG_PATH, index=False, encoding="utf-8-sig")
     return default_df
@@ -293,14 +296,14 @@ with st.sidebar:
     
     if role_option == "견적 & 요금 비교 전문가":
         base_instruction = (
-            "당신은 영업 팀원을 보조하는 세스코 견적 및 요금 안내 전문 컨설턴트입니다.\n"
+            "당신은 영업 플래너를 보조하는 세스코 견적 및 요금 안내 전문 컨설턴트입니다.\n"
             "등록된 단가표 데이터를 바탕으로 정확한 제품명, 스펙, 요금을 신속히 안내하세요.\n"
             "핵심 단독가, 결합가, 프로모션가를 마크다운 표(Table)와 요약 불렛포인트로 간결하고 짧게 작성하세요."
         )
     elif role_option == "거절 대응 & 셀링포인트 안내":
         base_instruction = (
             "당신은 베테랑 영업 멘토입니다.\n"
-            "팀원이 고객의 거절 반응을 입력하면, 핵심 반박 논리와 차별점을 3줄 이내로 핵심만 알려주세요."
+            "플래너가 고객의 거절 반응을 입력하면, 핵심 반박 논리와 차별점을 3줄 이내로 핵심만 알려주세요."
         )
     else:
         base_instruction = "당신은 유능하고 친절한 AI 영업 보조입니다. 답변은 간결하게 작성하세요."
@@ -320,26 +323,33 @@ with st.sidebar:
     if input_pwd == admin_password_secret:
         st.success("🔓 관리자 권한 활성화됨")
         
-        admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📊 영업 대시보드", "📦 체험장비 보유 관리", "📁 단가표 관리"])
+        admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📊 영업 대시보드", "📦 체험장비 보유/설치 관리", "📁 단가표 관리"])
         
+        # 📊 [1. 대시보드 탭]
         with admin_tab1:
-            st.write("📈 **실시간 영업 성과 & 체험장비 대시보드**")
+            st.write("📈 **실시간 영업 성과 대시보드**")
             
             if os.path.exists(SALES_LOG_PATH):
                 logs_df = pd.read_csv(SALES_LOG_PATH)
+                if "담당팀원" in logs_df.columns and "담당플래너" not in logs_df.columns:
+                    logs_df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
+                if "설치장비품목" not in logs_df.columns:
+                    logs_df["설치장비품목"] = "-"
+                
                 inv_df = load_equipment_inventory()
                 
-                installed_counts = logs_df[logs_df["체험장비설치"] == "설치 완료"]["담당팀원"].value_counts().reset_index()
-                installed_counts.columns = ["담당팀원", "설치대수"]
+                installed_counts = logs_df[logs_df["체험장비설치"] == "설치 완료"]["담당플래너"].value_counts().reset_index()
+                installed_counts.columns = ["담당플래너", "설치대수"]
                 
-                merged_inv = pd.merge(inv_df, installed_counts, on="담당팀원", how="left").fillna(0)
+                merged_inv = pd.merge(inv_df, installed_counts, on="담당플래너", how="left").fillna(0)
                 merged_inv["설치대수"] = merged_inv["설치대수"].astype(int)
+                merged_inv["잔여재고"] = merged_inv["보유대수"] - merged_inv["설치대수"]
                 merged_inv["설치활동률(%)"] = (merged_inv["설치대수"] / merged_inv["보유대수"] * 100).round(1)
                 
-                st.subheader("1️⃣ 팀원별 체험장비 보유 및 설치 활동량")
-                st.dataframe(merged_inv, use_container_width=True)
+                st.subheader("1️⃣ 플래너별 체험장비 보유/설치/잔여재고 현황")
+                st.dataframe(merged_inv[["담당플래너", "보유대수", "설치대수", "잔여재고", "설치활동률(%)"]], use_container_width=True)
                 
-                chart_data = merged_inv.set_index("담당팀원")[["보유대수", "설치대수"]]
+                chart_data = merged_inv.set_index("담당플래너")[["보유대수", "설치대수", "잔여재고"]]
                 st.bar_chart(chart_data)
                 
                 st.divider()
@@ -368,7 +378,7 @@ with st.sidebar:
                 st.bar_chart(product_counts)
                 
                 st.divider()
-                st.write("📋 **전체 영업일지 데이터:**")
+                st.write("📋 **전체 영업일지 데이터 대장:**")
                 st.dataframe(logs_df, use_container_width=True)
                 
                 logs_csv = logs_df.to_csv(index=False, encoding="utf-8-sig")
@@ -382,16 +392,40 @@ with st.sidebar:
             else:
                 st.info("영업일지 데이터가 쌓이면 실시간 분석 대시보드가 표시됩니다.")
 
+        # 📦 [2. 체험장비 보유 및 설치 상세 관리 탭]
         with admin_tab2:
-            st.write("📦 **팀원별 체험장비 보유 대수 설정**")
+            st.write("📦 **체험장비 보유 대수 & 설치 장소/내역 종합 관리**")
+            
+            st.subheader("📍 1. 체험장비 실제 설치 매장/장소 상세 내역")
+            if os.path.exists(SALES_LOG_PATH):
+                logs_df = pd.read_csv(SALES_LOG_PATH)
+                if "담당팀원" in logs_df.columns and "담당플래너" not in logs_df.columns:
+                    logs_df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
+                if "설치장비품목" not in logs_df.columns:
+                    logs_df["설치장비품목"] = "-"
+                
+                installed_logs = logs_df[logs_df["체험장비설치"] == "설치 완료"]
+                
+                if len(installed_logs) > 0:
+                    display_cols = ["작성일시", "담당플래너", "고객/매장명", "설치장비품목", "고객반응/상태", "영업메모"]
+                    st.dataframe(installed_logs[display_cols], use_container_width=True)
+                else:
+                    st.info("현재 현장에 설치된 체험장비 내역이 없습니다.")
+            else:
+                st.info("기록된 영업일지가 없습니다.")
+                
+            st.divider()
+            
+            st.subheader("⚙️ 2. 플래너별 체험장비 보유 대수 수정")
             current_inv = load_equipment_inventory()
             
             edited_df = st.data_editor(current_inv, num_rows="dynamic", use_container_width=True)
             if st.button("💾 보유 대수 수정사항 저장", use_container_width=True):
                 save_equipment_inventory(edited_df)
-                st.toast("✅ 팀원별 체험장비 보유 대수가 업데이트되었습니다!", icon="🎉")
+                st.toast("✅ 플래너별 체험장비 보유 대수가 업데이트되었습니다!", icon="🎉")
                 st.rerun()
 
+        # 📁 [3. 단가표 관리 탭]
         with admin_tab3:
             new_file = st.file_uploader("새 단가표 (시트 1 작성 엑셀/PDF)", type=["xlsx", "csv", "pdf"])
             if new_file and st.button("💾 마스터 데이터로 반영", use_container_width=True):
@@ -574,27 +608,28 @@ if "GEMINI_API_KEY" in st.secrets:
                     st.error(f"⚠️ 생성 중 오류 발생: {img_err}")
 
     # ==========================================
-    # 📝 현장 영업일지 기록
+    # 📝 현장 영업일지 기록 (플래너 명칭 적용)
     # ==========================================
-    with st.expander("📝 **팀원 현장 영업 미팅 일지 기록하기**"):
-        st.caption("오늘 방문한 매장/고객과의 상담 내역을 기록하면 팀 전체 영업 대장에 저장됩니다.")
+    with st.expander("📝 **플래너 현장 영업 미팅 일지 기록하기**"):
+        st.caption("오늘 방문한 매장/고객과의 상담 내역을 기록하면 전체 영업 대장에 저장됩니다.")
         with st.form("sales_log_form", clear_on_submit=True):
             col_a, col_b = st.columns(2)
             with col_a:
-                m_name = st.text_input("담당 팀원 이름 * (예: 홍길동)")
+                m_name = st.text_input("담당 플래너 이름 * (예: 홍길동)")
                 c_name = st.text_input("방문 매장/고객명 * (예: 대박식당)")
                 p_deal = st.text_input("제안 서비스 및 견적가 (예: 방제+바이러스 결합 월 65,000원)")
             with col_b:
                 eq_status = st.selectbox("🎁 체험장비 설치 여부", ["미설치", "설치 완료"])
+                eq_item = st.text_input("설치한 체험장비 품목 (예: 공기살균기 B타입, 포충기 등)")
                 reaction = st.selectbox("고객 반응/상태", ["계약 완료 🎉", "긍정적 (계약 임박)", "검토 중 (재방문 필요)", "보류 (가격 부담)"])
                 memo = st.text_input("영업 메모 (예: 다음 주 화요일에 사장님 재방문 예정)")
                 
             submit_log = st.form_submit_button("💾 영업일지 저장하기", use_container_width=True)
             if submit_log:
                 if m_name and c_name:
-                    save_sales_log(m_name, c_name, p_deal, eq_status, reaction, memo)
+                    save_sales_log(m_name, c_name, p_deal, eq_status, eq_item, reaction, memo)
                     st.success("🎉 영업일지가 성공적으로 저장되었습니다!")
                 else:
-                    st.warning("⚠️ 필수 항목을 입력해 주세요.")
+                    st.warning("⚠️ 필수 항목(플래너 이름, 고객명)을 입력해 주세요.")
 else:
     st.error("⚠️ Streamlit Cloud Secrets에 GEMINI_API_KEY가 설정되지 않았습니다.")
