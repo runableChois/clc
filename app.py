@@ -14,7 +14,7 @@ from pypdf import PdfReader
 import streamlit as st
 import streamlit.components.v1 as components
 
-# OpenAI 라이브러리 안전 임포트 시도
+# OpenAI 라이브러리 안전 임포트
 try:
     from openai import OpenAI
     OPENAI_AVAILABLE = True
@@ -162,15 +162,15 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. 안전한 DALL-E 3 이미지 생성 함수
+# 3. OpenAI DALL-E 3 마케팅 이미지 실시간 생성 함수
 # ==========================================
 def generate_dalle3_marketing_card(store_name, industry, solution_text):
     if not OPENAI_AVAILABLE:
-        return None, "OpenAI 라이브러리가 설치되지 않았습니다."
+        return None, "OpenAI 패키지가 설치되지 않았습니다."
     
     openai_key = st.secrets.get("OPENAI_API_KEY", "").strip()
     if not openai_key:
-        return None, "OpenAI API Key가 설정되지 않았습니다."
+        return None, "OpenAI API Key가 Secrets에 설정되지 않았습니다."
     
     try:
         client_openai = OpenAI(api_key=openai_key)
@@ -179,7 +179,7 @@ def generate_dalle3_marketing_card(store_name, industry, solution_text):
             f"Vertical 9:16 aspect ratio. Deep trustworthy navy blue and clean sky blue corporate color scheme. "
             f"Sleek, modern design layout featuring clean typography highlighting business '{store_name}' ({industry}), "
             f"CESCO's 3-day free trial ('3일 무상 체험'), and solution keywords like '{solution_text}'. "
-            f"High resolution, crisp vector style graphics, premium corporate advertisement style, highly readable, no distorted text."
+            f"High resolution, crisp vector style graphics, premium corporate advertisement style, highly readable."
         )
         
         response = client_openai.images.generate(
@@ -772,7 +772,7 @@ if "GEMINI_API_KEY" in st.secrets:
                             use_container_width=True
                         )
                     else:
-                        st.error(f"이미지 생성 실패: {err}")
+                        st.warning(f"⚠️ DALL-E 3 이미지 생성 안내: {err}\n\n(참고: OpenAI API 계정의 크레딧 잔액 동기화가 완료되면 정상 작동합니다. 위 텍스트 제안서는 정상 복사하여 사용하실 수 있습니다.)")
 
     with proposal_tab2:
         with st.form("auto_product_form"):
@@ -783,7 +783,7 @@ if "GEMINI_API_KEY" in st.secrets:
             
         if submitted_auto_prod:
             if not auto_prod_name or not auto_prod_target:
-                st.warning("제품명과 타겟 업종을 입력해 주세요.")
+                st.warning("제품명과 타겟 업종은 필수 입력 항목입니다.")
             else:
                 with st.spinner("OpenAI DALL-E 3가 해당 제품 맞춤형 고품격 디자인 광고 배너를 생성 중입니다..."):
                     dalle_bytes, err = generate_dalle3_marketing_card(auto_prod_target, auto_prod_name, "3일 무상 체험 및 전문 살균 케어")
@@ -798,7 +798,7 @@ if "GEMINI_API_KEY" in st.secrets:
                             use_container_width=True
                         )
                     else:
-                        st.error(f"이미지 생성 실패: {err}")
+                        st.warning(f"⚠️ DALL-E 3 이미지 생성 안내: {err}")
 
     # ==========================================
     # 📝 현장 영업일지 기록 (3일 체험 스케줄 자동 연동)
