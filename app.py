@@ -7,6 +7,7 @@ import pandas as pd
 from pypdf import PdfReader
 from PIL import Image, ImageDraw, ImageFont
 import streamlit as st
+import streamlit.components.v1 as components
 from google import genai
 from google.genai import types
 
@@ -19,20 +20,65 @@ st.set_page_config(
     layout="wide"
 )
 
-# 모바일 화면 비율, 불필요한 UI 숨기기 CSS
+# 💡 [핵심] Streamlit Cloud 상위 화면의 왕관/프로필/배지 완벽 제거 자바스크립트
+components.html("""
+<script>
+    function removeStreamlitBadges() {
+        try {
+            const parentDoc = window.parent.document;
+            
+            // 왕관, 프로필, 툴바, 플로팅 버튼 관련 선택자 모음
+            const selectors = [
+                'footer',
+                'header',
+                '#MainMenu',
+                '[data-testid="stHeader"]',
+                '[data-testid="stToolbar"]',
+                '[data-testid="stStatusWidget"]',
+                '[data-testid="stDecoration"]',
+                '[class*="viewerBadge"]',
+                '[class*="stAppDeployButton"]',
+                '[class*="floating"]',
+                'div[style*="position: fixed"][style*="bottom"]',
+                'a[style*="position: fixed"][style*="bottom"]',
+                'button[style*="position: fixed"][style*="bottom"]',
+                'div[class*="styles_viewerBadge"]',
+                'div[class*="ViewerBadge"]'
+            ];
+            
+            selectors.forEach(selector => {
+                const elements = parentDoc.querySelectorAll(selector);
+                elements.forEach(el => {
+                    el.style.display = 'none';
+                    el.style.visibility = 'hidden';
+                    el.style.opacity = '0';
+                    el.style.pointerEvents = 'none';
+                });
+            });
+        } catch (e) {
+            console.log(e);
+        }
+    }
+    
+    // 0.3초마다 체크하여 계속 생성되는 왕관 배지 실시간 삭제
+    setInterval(removeStreamlitBadges, 300);
+</script>
+""", height=0, width=0)
+
+# 모바일 화면 비율 및 숨김 CSS
 st.markdown("""
 <style>
-    /* 1. Streamlit 기본 헤더, 푸터, 왕관/프로필 아이콘 완전히 숨기기 */
-    #MainMenu {visibility: hidden !important;}
-    header {visibility: hidden !important;}
-    footer {visibility: hidden !important;}
-    div[data-testid="stToolbar"] {visibility: hidden !important;}
-    div[data-testid="stDecoration"] {visibility: hidden !important;}
-    div[data-testid="stStatusWidget"] {visibility: hidden !important;}
+    /* 1. 기본 헤더/푸터 CSS 숨김 처리 */
+    #MainMenu {visibility: hidden !important; display: none !important;}
+    header {visibility: hidden !important; display: none !important;}
+    footer {visibility: hidden !important; display: none !important;}
+    div[data-testid="stHeader"] {display: none !important;}
+    div[data-testid="stToolbar"] {display: none !important;}
+    div[data-testid="stDecoration"] {display: none !important;}
+    div[data-testid="stStatusWidget"] {display: none !important;}
     .stAppDeployButton {display: none !important;}
     button[title="View app in Streamlit Community Cloud"] {display: none !important;}
     div[class*="viewerBadge"] {display: none !important;}
-    div[data-testid="stActionButtonIcon"] {display: none !important;}
     
     /* 2. 메인 여백 모바일 최적화 */
     .main .block-container {
@@ -422,7 +468,6 @@ if "GEMINI_API_KEY" in st.secrets:
                 try:
                     recent_chat = st.session_state.messages[-1]["content"]
                     
-                    # 💡 [핵심] 카톡용 300자 이내 초간결 요약 프롬프트
                     summary_prompt = (
                         f"다음 견적 내용을 바탕으로 카카오톡 전송용 메시지를 작성해 줘.\n"
                         f"[작성 조건]\n"
@@ -437,7 +482,6 @@ if "GEMINI_API_KEY" in st.secrets:
                     st.subheader("📱 **1. 카톡 전송용 간결 메시지 (복사용)**")
                     st.code(text_res.text, language="text")
                     
-                    # 2. JSON 파싱
                     json_prompt = (
                         f"다음 견적 내용에서 핵심 서비스와 요금 정보만 추출하여 오직 JSON으로 응답해 줘.\n"
                         f"JSON 예시:\n"
