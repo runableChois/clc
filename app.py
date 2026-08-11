@@ -401,7 +401,7 @@ with st.sidebar:
                 st.subheader("1️⃣ 플래너별 체험장비 보유 및 설치 현황")
                 st.dataframe(merged_inv[["담당플래너", "전체 보유대수", "설치대수", "현재 수중 보유대수", "설치활동률(%)"]], use_container_width=True)
                 
-                # 🔥 [신규] 3일 체험 피드백 요청 대시보드
+                # 3일 체험 피드백 요청 대시보드
                 st.divider()
                 st.subheader("⏰ 2️⃣ [3일 체험 완료] 피드백 요청 & 계약 클로징 대상 매장")
                 if "3일체험_피드백예정일" in logs_df.columns:
@@ -509,9 +509,11 @@ with st.sidebar:
     else:
         st.caption("관리자만 영업 대시보드 및 AI 누적 문서 학습 관리가 가능합니다.")
 
+    # 🔥 [수정] 대화내용 초기화 버튼 (확실하게 세션 및 화면 전체 리셋)
     st.divider()
     if st.button("🔄 대화 내용 초기화", use_container_width=True):
-        st.session_state.messages = []
+        st.session_state["messages"] = []
+        st.toast("대화 내용이 초기화되었습니다.", icon="🧹")
         st.rerun()
 
 # ==========================================
@@ -533,7 +535,7 @@ if "GEMINI_API_KEY" in st.secrets:
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # 🔥 [고도화 2] 현장 거절 대응 1초 반박 퀵카드 (익스팬더)
+    # 현장 거절 대응 1초 반박 퀵카드 (익스팬더)
     with st.expander("⚡ **현장 사장님 거절 반응 '1초 반박' 퀵카드 (원터치)**", expanded=False):
         st.caption("현장에서 사장님이 거절 멘트를 던졌을 때 버튼을 누르면 1초 만에 최적의 반박 피칭 스크립트가 출력됩니다.")
         q_col1, q_col2, q_col3 = st.columns(3)
@@ -616,23 +618,29 @@ if "GEMINI_API_KEY" in st.secrets:
             role = "user" if msg["role"] == "user" else "model"
             history.append({"role": role, "parts": [{"text": msg["content"]}]})
 
-        final_system_instruction = base_instruction
-        
-        if role_option == "견적 & 요금 비교 전문가 (학습 문서 기반 Pro)" and knowledge_context:
-            final_system_instruction += (
-                f"\n\n[업로드된 전체 통합 학습 문서 데이터 ({len(learned_files_list)}건 통합본)]\n"
-                "가장 중요한 정보입니다. 답변 시 반드시 이 내용 안에서만 찾고 3번 점검하세요:\n\n"
-                f"{knowledge_context}"
+        # 🔥 [핵심 수정] 퀵카드가 선택된 경우, 무거운 상권/지도/요약표 프롬프트를 완전 차단(Bypass)
+        if quick_rejection_prompt:
+            final_system_instruction = (
+                "당신은 베테랑 세스코 영업 멘토입니다.\n"
+                "지역 정보, 건물 주소, 지도 링크, 요약표 등은 절대로 작성하거나 출력하지 마세요.\n"
+                "오직 요청된 거절 상황에 대한 1초 즉시 반박 킬러 스크립트(플래너 대화 화법)와 핵심 영업 팁만 불렛포인트로 3~4줄 이내로 매우 빠르고 간결하게 출력하세요."
             )
-        elif role_option == "경기서북부 상권 분석 & 영업지 추천 (BI Pro)":
-            final_system_instruction += (
-                "\n\n[경기 서북부 상권 분석 가이드]\n"
-                "고양, 파주, 김포, 검단 지역 특성에 집중하여 층별 입점 업종, 점주 상주 골든타임, 네이버 지도 URL, 네이버 리뷰 ROI 설득 및 '3일 무상 체험 피드백' 프로세스를 명확히 제안하세요."
-            )
+        else:
+            final_system_instruction = base_instruction
+            if role_option == "견적 & 요금 비교 전문가 (학습 문서 기반 Pro)" and knowledge_context:
+                final_system_instruction += (
+                    f"\n\n[업로드된 전체 통합 학습 문서 데이터 ({len(learned_files_list)}건 통합본)]\n"
+                    "가장 중요한 정보입니다. 답변 시 반드시 이 내용 안에서만 찾고 3번 점검하세요:\n\n"
+                    f"{knowledge_context}"
+                )
+            elif role_option == "경기서북부 상권 분석 & 영업지 추천 (BI Pro)":
+                final_system_instruction += (
+                    "\n\n[경기 서북부 상권 분석 가이드]\n"
+                    "고양, 파주, 김포, 검단 지역 특성에 집중하여 층별 입점 업종, 점주 상주 골든타임, 네이버 지도 URL, 네이버 리뷰 ROI 설득 및 '3일 무상 체험 피드백' 프로세스를 명확히 제안하세요."
+                )
 
         with st.chat_message("assistant"):
             try:
-                # 최신 Gemini 3 모델 적용
                 chat = client.chats.create(
                     model="gemini-3-flash-preview", 
                     config=types.GenerateContentConfig(
