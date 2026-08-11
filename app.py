@@ -20,7 +20,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Streamlit Cloud 배지/왕관 아이콘만 핀포인트 제거 스크립트
+# 💡 Streamlit Cloud 배지/왕관 아이콘만 핀포인트 제거 스크립트
 components.html("""
 <script>
     function removeStreamlitBadgesOnly() {
@@ -123,11 +123,12 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ==========================================
-# 2. 고해상도 그래픽 카드 엔진
+# 2. 한글 폰트 자동 준비 및 고해상도 그래픽 카드 엔진 (복원)
 # ==========================================
 FONT_PATH = "NanumGothic-Bold.ttf"
 
 def ensure_korean_font():
+    """클라우드 서버용 한글 폰트 자동 다운로드"""
     if not os.path.exists(FONT_PATH):
         font_url = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf"
         try:
@@ -136,11 +137,15 @@ def ensure_korean_font():
             st.error(f"폰트 다운로드 실패: {e}")
 
 def create_high_res_quote_card(card_data):
+    """모바일 전용 초고해상도(1200x1600) 완제품 이미지 카드 생성 (복원)"""
     ensure_korean_font()
+    
+    # 고해상도 캔버스
     width, height = 1200, 1600
     img = Image.new('RGB', (width, height), color='#f1f5f9')
     draw = ImageDraw.Draw(img)
     
+    # 고해상도용 스케일업 폰트 로드
     try:
         font_brand = ImageFont.truetype(FONT_PATH, 48)
         font_subhead = ImageFont.truetype(FONT_PATH, 24)
@@ -152,21 +157,28 @@ def create_high_res_quote_card(card_data):
     except:
         font_brand = font_subhead = font_title = font_item_name = font_price = font_regular = font_small = ImageFont.load_default()
 
+    # 1. 상단 브랜드 메인 헤더
     draw.rectangle([(0, 0), (width, 200)], fill='#003b7a')
-    draw.rectangle([(0, 190), (width, 200)], fill='#00a3e0')
+    draw.rectangle([(0, 190), (width, 200)], fill='#00a3e0') # 포인트 라인
+    
     draw.text((60, 45), "💎 CESCO 맞춤 솔루션 견적서", fill='#ffffff', font=font_brand)
     draw.text((60, 125), "세스코 공식 단가 기준 | 현장 맞춤 위생 케어 제안", fill='#dbeafe', font=font_subhead)
 
+    # 2. 견적 대상 타이틀 정보 카드
     draw.rectangle([(50, 240), (width - 50, 370)], fill='#ffffff', outline='#cbd5e1', width=2)
+    
     title_text = card_data.get("title", "맞춤 위생 솔루션 견적")
     draw.text((80, 268), title_text[:30], fill='#0f172a', font=font_title)
+    
     subtitle_text = card_data.get("subtitle", "공식 결합 할인 및 프로모션 혜택 적용")
     draw.text((80, 320), subtitle_text[:40], fill='#64748b', font=font_regular)
 
+    # 3. 품목별 견적 카드 리스트 (최대 4개)
     items = card_data.get("items", [])
     y_offset = 400
     for item in items[:4]:
         draw.rectangle([(50, y_offset), (width - 50, y_offset + 140)], fill='#ffffff', outline='#e2e8f0', width=2)
+        
         name = item.get("name", "서비스 항목")
         note = item.get("note", "")
         price = item.get("price", "상담가")
@@ -175,16 +187,20 @@ def create_high_res_quote_card(card_data):
         if note:
             draw.text((80, y_offset + 80), note[:28], fill='#64748b', font=font_small)
 
+        # 가격 오른쪽 배치
         draw.rectangle([(width - 380, y_offset + 30), (width - 80, y_offset + 110)], fill='#eff6ff', outline='#bfdbfe', width=1)
         draw.text((width - 360, y_offset + 48), price, fill='#003b7a', font=font_price)
+        
         y_offset += 160
 
+    # 4. 특별 프로모션 하이라이트 박스
     promo_text = card_data.get("promotion", "")
     if promo_text:
         draw.rectangle([(50, y_offset + 10), (width - 50, y_offset + 180)], fill='#e0f2fe', outline='#0284c7', width=2)
         draw.text((80, y_offset + 35), "🎁 특별 프로모션 & 결합 혜택", fill='#0369a1', font=font_title)
         draw.text((80, y_offset + 105), promo_text[:45], fill='#0f172a', font=font_regular)
 
+    # 5. 하단 푸터 영역
     draw.rectangle([(0, height - 130), (width, height)], fill='#0f172a')
     draw.text((60, height - 95), "📞 서비스 문의 & 무료 현장 진단: 세스코 담당 영업팀", fill='#ffffff', font=font_regular)
     draw.text((60, height - 55), "※ 본 견적은 현장 상황 및 약정 조건에 따라 변동될 수 있습니다.", fill='#94a3b8', font=font_small)
@@ -222,10 +238,10 @@ def delete_master_data():
     if os.path.exists(NAME_FILE_PATH):
         os.remove(NAME_FILE_PATH)
 
-def save_sales_log(member_name, client_name, proposed_deal, equipment_status, equipment_item, reaction, memo):
+def save_sales_log_and_update_stock(planner_name, client_name, proposed_deal, equipment_status, equipment_item, reaction, memo):
     new_data = pd.DataFrame([{
         "작성일시": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "담당플래너": member_name,
+        "담당플래너": planner_name,
         "고객/매장명": client_name,
         "제안서비스/견적가": proposed_deal,
         "체험장비설치": equipment_status,
@@ -241,6 +257,25 @@ def save_sales_log(member_name, client_name, proposed_deal, equipment_status, eq
     else:
         df = new_data
     df.to_csv(SALES_LOG_PATH, index=False, encoding="utf-8-sig")
+
+    if equipment_status == "설치 완료" and os.path.exists(EQUIPMENT_LOG_PATH):
+        inv_df = pd.read_csv(EQUIPMENT_LOG_PATH)
+        if "담당팀원" in inv_df.columns:
+            inv_df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
+        if "보유대수" in inv_df.columns and "전체 보유대수" not in inv_df.columns:
+            inv_df.rename(columns={"보유대수": "전체 보유대수"}, inplace=True)
+            
+        mask = inv_df["담당플래너"] == planner_name
+        if mask.any():
+            current_total = inv_df.loc[mask, "전체 보유대수"].values[0]
+            if current_total > 0:
+                inv_df.loc[mask, "전체 보유대수"] = current_total - 1
+                inv_df.to_csv(EQUIPMENT_LOG_PATH, index=False, encoding="utf-8-sig")
+            else:
+                return False, f"⚠️ 오류: {planner_name} 플래너의 전체 보유대수가 0대라 설치를 기록할 수 없습니다."
+        else:
+            return False, f"⚠️ 오류: 장비 보유 현황에 {planner_name} 플래너가 등록되어 있지 않습니다."
+    return True, "🎉 영업일지가 성공적으로 저장되고 재고가 반영되었습니다!"
 
 def load_equipment_inventory():
     if os.path.exists(EQUIPMENT_LOG_PATH):
@@ -299,12 +334,14 @@ with st.sidebar:
         base_instruction = (
             "당신은 영업 플래너를 보조하는 세스코 견적 및 요금 안내 전문 컨설턴트입니다.\n"
             "등록된 단가표 데이터를 바탕으로 정확한 제품명, 스펙, 요금을 신속히 안내하세요.\n"
-            "핵심 단독가, 결합가, 프로모션가를 마크다운 표(Table)와 요약 불렛포인트로 간결하고 짧게 작성하세요."
+            "모바일 화면 가독성을 위해 장황한 인사말은 생략하고, "
+            "핵심 단독가, 결합가, 프로모션가를 마크다운 표(Table)와 불렛포인트로 간결하고 짧게 답변하세요.\n"
+            "답변 본문에는 이미지를 첨부하지 마세요."
         )
     elif role_option == "거절 대응 & 셀링포인트 안내":
         base_instruction = (
             "당신은 베테랑 영업 멘토입니다.\n"
-            "플래너가 고객의 거절 반응을 입력하면, 핵심 반박 논리와 차별점을 3줄 이내로 핵심만 알려주세요."
+            "플래너가 고객의 거절 반응을 입력하면, 반박 논리와 셀링 포인트를 3줄 이내로 핵심만 간결하게 알려주세요."
         )
     else:
         base_instruction = "당신은 유능하고 친절한 AI 영업 보조입니다. 답변은 간결하게 작성하세요."
@@ -324,9 +361,8 @@ with st.sidebar:
     if input_pwd == admin_password_secret:
         st.success("🔓 관리자 권한 활성화됨")
         
-        admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📊 영업 대시보드", "📦 체험장비 보유/설치 관리", "📁 단가표 관리"])
+        admin_tab1, admin_tab2, admin_tab3 = st.tabs(["📊 영업 대시보드", "📦 체험장비 운용 내역 & 재고 설정", "📁 단가표 관리"])
         
-        # 📊 [1. 대시보드 탭]
         with admin_tab1:
             st.write("📈 **실시간 영업 성과 대시보드**")
             
@@ -344,13 +380,13 @@ with st.sidebar:
                 
                 merged_inv = pd.merge(inv_df, installed_counts, on="담당플래너", how="left").fillna(0)
                 merged_inv["설치대수"] = merged_inv["설치대수"].astype(int)
-                merged_inv["현재 보유대수"] = merged_inv["전체 보유대수"] - merged_inv["설치대수"]
+                merged_inv["현재 수중 보유대수"] = merged_inv["전체 보유대수"] - merged_inv["설치대수"]
                 merged_inv["설치활동률(%)"] = (merged_inv["설치대수"] / merged_inv["전체 보유대수"] * 100).round(1)
                 
                 st.subheader("1️⃣ 플래너별 체험장비 보유 및 설치 현황")
-                st.dataframe(merged_inv[["담당플래너", "전체 보유대수", "설치대수", "현재 보유대수", "설치활동률(%)"]], use_container_width=True)
+                st.dataframe(merged_inv[["담당플래너", "전체 보유대수", "설치대수", "현재 수중 보유대수", "설치활동률(%)"]], use_container_width=True)
                 
-                chart_data = merged_inv.set_index("담당플래너")[["전체 보유대수", "설치대수", "현재 보유대수"]]
+                chart_data = merged_inv.set_index("담당플래너")[["전체 보유대수", "설치대수", "현재 수중 보유대수"]]
                 st.bar_chart(chart_data)
                 
                 st.divider()
@@ -393,7 +429,6 @@ with st.sidebar:
             else:
                 st.info("영업일지 데이터가 쌓이면 실시간 분석 대시보드가 표시됩니다.")
 
-        # 📦 [2. 체험장비 보유 및 설치 상세 관리 탭]
         with admin_tab2:
             st.write("📦 **체험장비 보유 대수 & 설치 장소/내역 종합 관리**")
             
@@ -417,16 +452,15 @@ with st.sidebar:
                 
             st.divider()
             
-            st.subheader("⚙️ 2. 플래너별 체험장비 전체 보유대수 수정")
+            st.subheader("⚙️ 2. 플래너별 체험장비 전체 할당 대수 수정")
             current_inv = load_equipment_inventory()
             
             edited_df = st.data_editor(current_inv, num_rows="dynamic", use_container_width=True)
             if st.button("💾 전체 보유대수 수정사항 저장", use_container_width=True):
                 save_equipment_inventory(edited_df)
-                st.toast("✅ 플래너별 체험장비 전체 보유대수가 업데이트되었습니다!", icon="🎉")
+                st.toast("✅ 플래너별 체험장비 전체 할당 대수가 업데이트되었습니다!", icon="🎉")
                 st.rerun()
 
-        # 📁 [3. 단가표 관리 탭]
         with admin_tab3:
             new_file = st.file_uploader("새 단가표 (시트 1 작성 엑셀/PDF)", type=["xlsx", "csv", "pdf"])
             if new_file and st.button("💾 마스터 데이터로 반영", use_container_width=True):
@@ -491,10 +525,12 @@ if "GEMINI_API_KEY" in st.secrets:
 
     st.write("---")
     
-    with st.expander("📸 **현장 해충/매장 사진 추천받기**"):
-        uploaded_img = st.file_uploader("현장 사진 첨부", type=["jpg", "jpeg", "png"])
+    # 📸 [고도화] "현장 사진 멀티모달 진단" 기능으로 명확화
+    with st.expander("📸 **현장 사진(해충/매장) AI 진단 및 서비스 추천**"):
+        uploaded_img = st.file_uploader("현장 스마트폰 사진을 첨부하세요.", type=["jpg", "jpeg", "png"])
         if uploaded_img:
-            st.image(uploaded_img, caption="첨부된 사진", width=200)
+            # Pillow 라이브러리가 설치되어 있어야 합니다 (Requirements.txt에 pillow 추가)
+            st.image(uploaded_img, caption="첨부된 사진 진단 중...", width=200)
 
     prompt_input = st.chat_input("질문 입력... (예: 25평 식당 결합가 얼마야?)")
     user_prompt = selected_faq if selected_faq else prompt_input
@@ -515,6 +551,15 @@ if "GEMINI_API_KEY" in st.secrets:
                 "아래 단가표에서 핵심 요금만 정확히 찾아 **간결하게** 답변하세요:\n\n"
                 f"{file_context}"
             )
+            
+        # 📸 [멀티모달 프롬프트 추가] 이미지가 첨부된 경우
+        if uploaded_img:
+            final_system_instruction += (
+                "\n\n[사진 진단 모드]\n"
+                "사용자가 첨부한 현장 사진을 보고 어떤 해충인지 식별하거나, 매장/주방의 위생 상태를 진단하세요. "
+                "진단 내용을 바탕으로 단가표 데이터에서 적합한 서비스를 추천하고 정확한 가격을 안내하세요. "
+                "답변 본문에는 이미지를 첨부하지 마세요."
+            )
 
         with st.chat_message("assistant"):
             try:
@@ -526,7 +571,9 @@ if "GEMINI_API_KEY" in st.secrets:
                     history=history
                 )
                 
+                # 📸 [멀티모달 전송] 이미지가 첨부된 경우 텍스트와 함께 전송
                 if uploaded_img:
+                    # PIL 라이브러리로 이미지 열기
                     img_obj = Image.open(uploaded_img)
                     send_contents = [user_prompt, img_obj]
                 else:
@@ -545,17 +592,19 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 [300자 제한] 카톡 요약문 & 카드 생성
+    # 📱 [300자 제한] 카톡 요약문 & 카드 생성 (복원 및 고도화)
     # ==========================================
     st.write("---")
     if len(st.session_state.messages) > 0:
-        if st.button("📱 **간결한 카톡 제안서 & 카드 이미지 생성**", use_container_width=True):
-            with st.spinner("300자 이내 카톡 메시지 및 고해상도 카드 제작 중..."):
+        if st.button("📱 **카톡 제안서 메시지 & 고화질 카드 이미지 생성**", use_container_width=True):
+            with st.spinner("300자 이내 카톡 메시지 및 초고해상도 카드 제작 중..."):
                 try:
                     recent_chat = st.session_state.messages[-1]["content"]
                     
+                    # 1. 카톡 문구용 텍스트 생성 (300자 제한)
                     summary_prompt = (
-                        f"다음 견적 내용을 바탕으로 카카오톡 전송용 메시지를 작성해 줘.\n"
+                        f"다음 견적 상담 내용을 바탕으로 고객에게 카카오톡으로 전달할 "
+                        f"친절하고 정중한 요약 메시지를 작성해 줘.\n"
                         f"[작성 조건]\n"
                         f"1. 전체 글자 수는 공백 포함 **최대 300자 이내**로 매우 간결하게 작성할 것.\n"
                         f"2. 인사말은 1줄로 최소화하고 [매장명/추천서비스/월단가/주요혜택]만 불렛포인트로 명확히 적을 것.\n"
@@ -565,18 +614,19 @@ if "GEMINI_API_KEY" in st.secrets:
                     chat = client.chats.create(model="gemini-3-flash-preview")
                     text_res = chat.send_message(summary_prompt)
                     
-                    st.subheader("📱 **1. 카톡 전송용 간결 메시지 (복사용)**")
+                    st.subheader("📱 **1. 카톡/문자 전송용 간결 메시지 (복사용)**")
                     st.code(text_res.text, language="text")
                     
+                    # 2. 이미지 카드용 JSON 데이터 구조화 파싱
                     json_prompt = (
-                        f"다음 견적 내용에서 핵심 서비스와 요금 정보만 추출하여 오직 JSON으로 응답해 줘.\n"
-                        f"JSON 예시:\n"
+                        f"다음 견적 내용에서 핵심 서비스와 요금 정보를 추출하여 오직 JSON 형식으로만 응답해 줘.\n"
+                        f"JSON 구조 예시:\n"
                         f"{{\n"
-                        f'  "title": "15평 매장 맞춤 위생 솔루션",\n'
-                        f'  "subtitle": "공식 결합 할인 적용가",\n'
+                        f'  "title": "15평 매장 맞춤 위생 솔루션 견적",\n'
+                        f'  "subtitle": "해충방제 + 위생케어 결합 할인 적용가",\n'
                         f'  "items": [\n'
-                        f'    {{"name": "보일러/유충 방제", "price": "45,000원/월", "note": "월 1회 점검"}},\n'
-                        f'    {{"name": "바이러스케어", "price": "30,000원/월", "note": "결합 할인가"}}\n'
+                        f'    {{"name": "보일러/유충 방제", "price": "45,000원/월", "note": "월 1회 방문 점검"}},\n'
+                        f'    {{"name": "바이러스케어", "price": "30,000원/월", "note": "방제 결합 할인가"}}\n'
                         f'  ],\n'
                         f'  "promotion": "초기 설치비 면제 혜택"\n'
                         f"}}\n\n"
@@ -584,35 +634,39 @@ if "GEMINI_API_KEY" in st.secrets:
                     )
                     json_res = chat.send_message(json_prompt)
                     
+                    # JSON 파싱 및 예외 처리
                     json_match = re.search(r'\{.*\}', json_res.text, re.DOTALL)
                     if json_match:
                         card_data = json.loads(json_match.group())
                     else:
                         card_data = {
-                            "title": "세스코 맞춤 솔루션 견적",
+                            "title": "CESCO 맞춤 솔루션 견적",
                             "subtitle": "공식 단가 기준 안내",
                             "items": [{"name": "맞춤 위생 서비스", "price": "상담가", "note": "상세 문의"}],
                             "promotion": "프로모션 및 결합 할인 조건 적용 가능"
                         }
                     
-                    st.subheader("🖼️ **2. 완성형 이미지 견적 카드**")
+                    # 3. 레이아웃이 잡힌 고해상도 완제품 카드 이미지 생성 및 출력
+                    st.subheader("🖼️ **2. 카톡 전송용 완성형 그래픽 견적 카드**")
                     card_img_bytes = create_high_res_quote_card(card_data)
+                    
                     st.image(card_img_bytes, caption="모바일 전용 초고해상도 견적 카드 (1200x1600)", use_container_width=True)
+                    
                     st.download_button(
                         label="📥 **고해상도 견적 카드 다운로드 (.png)**",
                         data=card_img_bytes,
-                        file_name="세스코_고해상도_견적카드.png",
+                        file_name="CES코_고해상도_견적카드.png",
                         mime="image/png",
                         use_container_width=True
                     )
                 except Exception as img_err:
-                    st.error(f"⚠️ 생성 중 오류 발생: {img_err}")
+                    st.error(f"⚠️ 카드 이미지 생성 중 오류가 발생했습니다: {img_err}")
 
     # ==========================================
     # 📝 현장 영업일지 기록
     # ==========================================
     with st.expander("📝 **플래너 현장 영업 미팅 일지 기록하기**"):
-        st.caption("오늘 방문한 매장/고객과의 상담 내역을 기록하면 전체 영업 대장에 저장됩니다.")
+        st.caption("오늘 방문한 매장/고객과의 상담 내역을 기록하면 전체 영업 대장에 저장되고 재고가 반영됩니다.")
         with st.form("sales_log_form", clear_on_submit=True):
             col_a, col_b = st.columns(2)
             with col_a:
@@ -625,11 +679,16 @@ if "GEMINI_API_KEY" in st.secrets:
                 reaction = st.selectbox("고객 반응/상태", ["계약 완료 🎉", "긍정적 (계약 임박)", "검토 중 (재방문 필요)", "보류 (가격 부담)"])
                 memo = st.text_input("영업 메모 (예: 다음 주 화요일에 사장님 재방문 예정)")
                 
-            submit_log = st.form_submit_button("💾 영업일지 저장하기", use_container_width=True)
+            submit_log = st.form_submit_button("💾 영업일지 저장 및 재고 반영하기", use_container_width=True)
             if submit_log:
                 if m_name and c_name:
-                    save_sales_log(m_name, c_name, p_deal, eq_status, eq_item, reaction, memo)
-                    st.success("🎉 영업일지가 성공적으로 저장되었습니다!")
+                    with st.spinner("영업일지 저장 및 재고 업데이트 중..."):
+                        success, message = save_sales_log_and_update_stock(m_name, c_name, p_deal, eq_status, eq_item, reaction, memo)
+                        if success:
+                            st.success(message)
+                            st.rerun()
+                        else:
+                            st.warning(message)
                 else:
                     st.warning("⚠️ 필수 항목(플래너 이름, 고객명)을 입력해 주세요.")
 else:
