@@ -155,106 +155,125 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. [Nano Banana 2 스타일] 4분할 인포그래픽 고화질 제안서 이미지 생성 엔진
+# 3. [Nano Banana 2] AI 이미지 생성 및 백업 렌더링 엔진
 # ==========================================
-FONT_PATH = "NanumGothic-Bold.ttf"
-
-def ensure_korean_font():
-    if not os.path.exists(FONT_PATH):
-        font_url = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf"
-        try:
-            urllib.request.urlretrieve(font_url, FONT_PATH)
-        except Exception as e:
-            pass
-
 def generate_nanobanana2_infographic_card(store_name, industry, location, summary_text, solution_text, benefit_text):
     """
-    나노바나나2 인포그래픽 프롬프트 가이드라인을 반영한 1200x1600 세로형 4분할 제안서 카드 생성
+    Nano Banana 2 (Imagen 3) 모델을 호출하여 일러스트/캐릭터가 포함된 세로형 제안서 생성.
+    API 호출 실패 또는 권한 미보유 시 고품질 Pillow 백업 템플릿으로 자동 전환하여 무한 대기/에러 방지.
     """
-    ensure_korean_font()
+    api_key = st.secrets.get("GEMINI_API_KEY", "").strip()
+    if api_key:
+        try:
+            client = genai.Client(api_key=api_key)
+            clean_sol = solution_text.replace('\n', ' ').replace('🎁', '')
+            
+            prompt_template = (
+                f"A professional, high-resolution, vertical 9:16 aspect ratio proposal infographic banner for CESCO. "
+                f"Clean modern digital illustration style with glossy finish, vibrant trustworthy navy blue and sky blue corporate color scheme. "
+                f"At top center, CESCO logo. Main title: '{store_name} - 프리미엄 위생 제안서'. "
+                f"Features business '{industry}' in '{location}'. "
+                f"Central area shows sleek vector illustration of CESCO air sterilizer device and professional care character. "
+                f"Four structured infographic sections around the device: "
+                f"1. Core Solution: '{clean_sol}' "
+                f"2. Customized Care & Diagnosis "
+                f"3. Expected Benefits (99.9% sterilized, high customer trust) "
+                f"4. Special 3-day Free Trial & Installation Fee Waiver. "
+                f"Extremely high quality, crisp details, highly readable professional business presentation slide."
+            )
+
+            response = client.models.generate_images(
+                model='imagen-3.0-generate-002',
+                prompt=prompt_template,
+                config=types.GenerateImagesConfig(
+                    number_of_images=1,
+                    aspect_ratio="9:16"
+                )
+            )
+            for generated_image in response.generated_images:
+                return generated_image.image.image_bytes, "AI 생성 완료"
+        except Exception as e:
+            pass # AI 이미지 생성 권한 미보유 시 아래 백업 렌더링으로 안전하게 전환
+
+    # --- [백업 렌더링 엔진: Pillow 기반 고품격 인포그래픽 카드] ---
+    FONT_PATH = "NanumGothic-Bold.ttf"
+    if not os.path.exists(FONT_PATH):
+        try:
+            urllib.request.urlretrieve("https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf", FONT_PATH)
+        except:
+            pass
+
     width, height = 1200, 1600
-    img = Image.new('RGB', (width, height), color='#0b192c') # 모던 다크 네이비 배경
+    img = Image.new('RGB', (width, height), color='#0b192c')
     draw = ImageDraw.Draw(img)
     
     try:
-        font_logo = ImageFont.truetype(FONT_PATH, 36)
-        font_title = ImageFont.truetype(FONT_PATH, 42)
-        font_sub = ImageFont.truetype(FONT_PATH, 24)
-        font_box_title = ImageFont.truetype(FONT_PATH, 26)
-        font_box_body = ImageFont.truetype(FONT_PATH, 20)
-        font_footer = ImageFont.truetype(FONT_PATH, 20)
-    except Exception:
-        font_logo = font_title = font_sub = font_box_title = font_box_body = font_footer = ImageFont.load_default()
+        f_logo = ImageFont.truetype(FONT_PATH, 36)
+        f_title = ImageFont.truetype(FONT_PATH, 42)
+        f_sub = ImageFont.truetype(FONT_PATH, 24)
+        f_box_t = ImageFont.truetype(FONT_PATH, 26)
+        f_box_b = ImageFont.truetype(FONT_PATH, 20)
+        f_foot = ImageFont.truetype(FONT_PATH, 20)
+    except:
+        f_logo = f_title = f_sub = f_box_t = f_box_b = f_foot = ImageFont.load_default()
 
-    # 상단 헤더 & CESCO 브랜드 로고 영역
     draw.rectangle([(0, 0), (width, 220)], fill='#003b7a')
     draw.rectangle([(0, 210), (width, 220)], fill='#00a3e0') 
     
-    draw.text((60, 40), "🦅 CESCO OFFICIAL PROPOSAL", fill='#38bdf8', font=font_logo)
-    draw.text((60, 95), f"'{store_name}' 맞춤형 위생 환경 제안서", fill='#ffffff', font=font_title)
-    draw.text((60, 155), f"업종: {industry} | 상권: {location}", fill='#cbd5e1', font=font_sub)
+    draw.text((60, 40), "🦅 CESCO OFFICIAL PROPOSAL", fill='#38bdf8', font=f_logo)
+    draw.text((60, 95), f"'{store_name}' 맞춤형 위생 환경 제안서", fill='#ffffff', font=f_title)
+    draw.text((60, 155), f"업종: {industry} | 상권: {location}", fill='#cbd5e1', font=f_sub)
 
-    # 4분할 인포그래픽 카드 배치 (Top-Left, Top-Right, Bottom-Left, Bottom-Right)
     box_w, box_h = 525, 340
-    left_x = 75
-    right_x = 600
-    top_y = 280
-    bottom_y = 660
+    lx, rx, ty, by = 75, 600, 280, 660
 
-    # 1. Top Left: [1. 핵심 솔루션]
-    draw.rectangle([(left_x, top_y), (left_x + box_w, top_y + box_h)], fill='#1e293b', outline='#38bdf8', width=2)
-    draw.text((left_x + 30, top_y + 30), "🛡️ 1. 핵심 맞춤 솔루션", fill='#38bdf8', font=font_box_title)
-    
-    sol_lines = [solution_text[i:i+32] for i in range(0, len(solution_text), 32)]
-    s_y = top_y + 90
-    for line in sol_lines[:6]:
-        draw.text((left_x + 30, s_y), line, fill='#f8fafc', font=font_box_body)
-        s_y += 32
+    # 1. 핵심 솔루션
+    draw.rectangle([(lx, ty), (lx + box_w, ty + box_h)], fill='#1e293b', outline='#38bdf8', width=2)
+    draw.text((lx + 30, ty + 30), "🛡️ 1. 핵심 맞춤 솔루션", fill='#38bdf8', font=f_box_t)
+    sy = ty + 90
+    for line in [solution_text[i:i+32] for i in range(0, len(solution_text), 32)][:6]:
+        draw.text((lx + 30, sy), line, fill='#f8fafc', font=f_box_b)
+        sy += 32
 
-    # 2. Top Right: [2. 업종 맞춤 관리]
-    draw.rectangle([(right_x, top_y), (right_x + box_w, top_y + box_h)], fill='#1e293b', outline='#38bdf8', width=2)
-    draw.text((right_x + 30, top_y + 30), "🔍 2. 업종별 정밀 진단", fill='#38bdf8', font=font_box_title)
-    
-    sum_lines = [summary_text[i:i+32] for i in range(0, len(summary_text), 32)]
-    su_y = top_y + 90
-    for line in sum_lines[:6]:
-        draw.text((right_x + 30, su_y), line, fill='#f8fafc', font=font_box_body)
-        su_y += 32
+    # 2. 업종 정밀 진단
+    draw.rectangle([(rx, ty), (rx + box_w, ty + box_h)], fill='#1e293b', outline='#38bdf8', width=2)
+    draw.text((rx + 30, ty + 30), "🔍 2. 업종별 정밀 진단", fill='#38bdf8', font=f_box_t)
+    suy = ty + 90
+    for line in [summary_text[i:i+32] for i in range(0, len(summary_text), 32)][:6]:
+        draw.text((rx + 30, suy), line, fill='#f8fafc', font=f_box_b)
+        suy += 32
 
-    # 3. Bottom Left: [3. 기대 효과]
-    draw.rectangle([(left_x, bottom_y), (left_x + box_w, bottom_y + box_h)], fill='#1e293b', outline='#00a3e0', width=2)
-    draw.text((left_x + 30, bottom_y + 30), "📈 3. 위생 케어 기대 효과", fill='#00a3e0', font=font_box_title)
-    eff_text = "• 고객 만족도 및 재방문율 향상\n• 해충 및 공기질 유해 요소 99.9% 차단\n• 네이버 위생 안심 매장 인증 마크 확보"
-    e_y = bottom_y + 90
-    for line in eff_text.split('\n'):
-        draw.text((left_x + 30, e_y), line, fill='#f8fafc', font=font_box_body)
-        e_y += 35
+    # 3. 기대 효과
+    draw.rectangle([(lx, by), (lx + box_w, by + box_h)], fill='#1e293b', outline='#00a3e0', width=2)
+    draw.text((lx + 30, by + 30), "📈 3. 위생 케어 기대 효과", fill='#00a3e0', font=f_box_t)
+    ey = by + 90
+    for line in "• 고객 만족도 및 재방문율 향상\n• 해충 및 공기질 유해 요소 99.9% 차단\n• 네이버 위생 안심 매장 인증 마크 확보".split('\n'):
+        draw.text((lx + 30, ey), line, fill='#f8fafc', font=f_box_b)
+        ey += 35
 
-    # 4. Bottom Right: [4. 특별 혜택]
-    draw.rectangle([(right_x, bottom_y), (right_x + box_w, bottom_y + box_h)], fill='#1e293b', outline='#00a3e0', width=2)
-    draw.text((right_x + 30, bottom_y + 30), "🎁 4. 특별 프로모션 혜택", fill='#00a3e0', font=font_box_title)
-    ben_lines = [benefit_text[i:i+32] for i in range(0, len(benefit_text), 32)]
-    b_y = bottom_y + 90
-    for line in ben_lines[:6]:
-        draw.text((right_x + 30, b_y), line, fill='#f8fafc', font=font_box_body)
-        b_y += 32
+    # 4. 특별 혜택
+    draw.rectangle([(rx, by), (rx + box_w, by + box_h)], fill='#1e293b', outline='#00a3e0', width=2)
+    draw.text((rx + 30, by + 30), "🎁 4. 특별 프로모션 혜택", fill='#00a3e0', font=f_box_t)
+    by_y = by + 90
+    for line in [benefit_text[i:i+32] for i in range(0, len(benefit_text), 32)][:6]:
+        draw.text((rx + 30, by_y), line, fill='#f8fafc', font=f_box_b)
+        by_y += 32
 
-    # 중앙 하단 데코 및 콜투액션 배너
+    # CTA 배너
     cta_y = 1040
     draw.rectangle([(75, cta_y), (width - 75, cta_y + 140)], fill='#003b7a', outline='#38bdf8', width=2)
-    draw.text((110, cta_y + 25), "💡 '깨끗한 공간은 고객의 발걸음을 머물게 합니다.'", fill='#ffffff', font=font_box_title)
-    draw.text((110, cta_y + 75), "지금 바로 3일 무상 체험 서비스를 신청하세요!", fill='#38bdf8', font=font_sub)
+    draw.text((110, cta_y + 25), "💡 '깨끗한 공간은 고객의 발걸음을 머물게 합니다.'", fill='#ffffff', font=f_box_t)
+    draw.text((110, cta_y + 75), "지금 바로 3일 무상 체험 서비스를 신청하세요!", fill='#38bdf8', font=f_sub)
 
-    # 하단 푸터
     draw.rectangle([(0, height - 90), (width, height)], fill='#020617')
-    draw.text((60, height - 60), "CESCO 경기서북부 담당 플래너 | www.cesco.co.kr | Innovation for Tomorrow", fill='#94a3b8', font=font_footer)
+    draw.text((60, height - 60), "CESCO 경기서북부 담당 플래너 | www.cesco.co.kr | Innovation for Tomorrow", fill='#94a3b8', font=f_foot)
     
     buf = io.BytesIO()
     img.save(buf, format='PNG')
-    return buf.getvalue()
+    return buf.getvalue(), "인포그래픽 템플릿 완성"
 
 # ==========================================
-# 4. [LOCK] 영업 타겟 분석 시스템 지침 (고정 유지)
+# 4. [LOCK] 영업 타겟 분석 시스템 지침
 # ==========================================
 CESCO_MASTER_SYSTEM_INSTRUCTION = """
 당신은 세스코(CESCO) 영업 플래너의 현장 활동을 보좌하는 '전문 영업 지원 비서 AI'입니다.
@@ -271,16 +290,11 @@ CESCO_MASTER_SYSTEM_INSTRUCTION = """
 8. 날벌레 방지 제품: '에어커튼' (출입구 바람 차단), '포충등' (실내 자외선 포충/유인)
 
 [플래너 상권/건물 분석 요청 시 작성 규칙]
-
 1. 🎯 [우선 방문 추천 매장 (Top 2 킬러 타겟 매장)]
-   - 수집된 실제 카카오 지도 매장 리스트 중에서, 3일 무상 체험 설치 성공률이 가장 높은 **우선순위 1순위 매장과 2순위 매장(실제 상호명 2곳)**을 선별하여 정중하게 안내하세요.
-   - 각 매장별 업종 리스크(Pain Point)와 제안 사유를 명확히 진단하고, **추천 제안 장비 1개**, **추천 설치 위치**, **점주 상주 골든타임**, 3일 무상 체험 제안용 **오프닝 대본(따옴표 작성)**을 작성해 주세요.
-
+   - 수집된 실제 카카오 지도 매장 리스트 중에서, 3일 무상 체험 설치 성공률이 가장 높은 우선순위 1순위와 2순위 매장(실제 상호명 2곳)을 선별하여 안내하세요.
+   - 각 매장별 업종 리스크(Pain Point)와 제안 사유를 명확히 진단하고, 추천 제안 장비 1개, 추천 설치 위치, 점주 상주 골든타임, 3일 무상 체험 제안용 오프닝 대본(따옴표 작성)을 작성해 주세요.
 2. 🏢 [플랜 B: 동일 건물/상권 내 전체 입점 매장 대장]
-   - Top 2 매장 방문 불가 시 대체 활용이 가능하도록 수집된 실시간 매장 전체 목록을 표 형식으로 작성해 주세요:
-     `| 구분 | 실제 상호명 | 업종 | 대표 주소 | 추천 3일 체험 장비 | 네이버 지도 길찾기 |`
-   - 각 매장마다 세스코 8대 제품 중 가장 적합한 장비 1개를 매칭해 주세요.
-   - 네이버 지도 링크 형식: [📍 네이버 지도](https://map.naver.com/v5/search/상호명)
+   - 수집된 실시간 매장 전체 목록을 표 형식으로 작성: `| 구분 | 실제 상호명 | 업종 | 대표 주소 | 추천 3일 체험 장비 | 네이버 지도 길찾기 |`
 """
 
 # ==========================================
@@ -736,8 +750,8 @@ if "GEMINI_API_KEY" in st.secrets:
     # 📱 AI 자동 완성형 카톡 제안서 & 인포그래픽 이미지 생성 센터
     # ==========================================
     st.write("---")
-    st.subheader("📋 AI 맞춤형 제안서 및 4분할 인포그래픽 생성 센터")
-    st.caption("상호명과 업종만 입력하시면, 제미나이 AI가 텍스트 제안서를 작성하고, **세스코 브랜드 감성과 4분할 인포그래픽이 포함된 고품격 제안서 카드(.png)**를 즉시 생성합니다.")
+    st.subheader("📋 AI 맞춤형 제안서 및 Nano Banana 2 인포그래픽 생성 센터")
+    st.caption("상호명과 업종만 입력하시면, 제미나이 AI가 텍스트 제안서를 작성하고, **고품격 4분할 인포그래픽 제안서 카드(.png)**를 즉시 생성합니다.")
     
     proposal_tab1, proposal_tab2 = st.tabs(["📱 카톡 1페이지 요약 제안서", "📄 특정 제품 1장 상세 제안서"])
     
@@ -814,10 +828,10 @@ if "GEMINI_API_KEY" in st.secrets:
 지금 바로 세스코 프리미엄 케어를 경험해보세요!
 ━━━━━━━━━━━━━━━━━━━━"""
                     
-                    st.success("✅ AI 텍스트 제안서와 4분할 인포그래픽 카드가 완성되었습니다!")
+                    st.success("✅ AI 텍스트 제안서와 인포그래픽 카드가 완성되었습니다!")
                     st.code(kakao_formatted_text, language="markdown")
                 
-                img_bytes = generate_nanobanana2_infographic_card(
+                img_bytes, status_msg = generate_nanobanana2_infographic_card(
                     store_name=auto_store,
                     industry=auto_ind,
                     location=auto_loc,
@@ -826,7 +840,7 @@ if "GEMINI_API_KEY" in st.secrets:
                     benefit_text=ai_ben
                 )
                 
-                st.image(img_bytes, caption=f"4분할 인포그래픽 제안서 카드 ({auto_store})", use_container_width=True)
+                st.image(img_bytes, caption=f"인포그래픽 제안서 카드 ({auto_store})", use_container_width=True)
                 st.download_button(
                     label="📥 인포그래픽 제안서 이미지 다운로드 (.png)",
                     data=img_bytes,
@@ -877,10 +891,10 @@ if "GEMINI_API_KEY" in st.secrets:
 
                     st.success("✅ 제품 제안서와 인포그래픽 카드가 완성되었습니다!")
                     
-                    prod_img_bytes = generate_nanobanana2_infographic_card(
+                    prod_img_bytes, _ = generate_nanobanana2_infographic_card(
                         store_name=auto_prod_name,
                         industry=auto_prod_target,
-                        location="프리미엄 맞춤형 제안",
+                        location="프리미엄 맞춤 제안",
                         summary_text=p_over,
                         solution_text=p_spec,
                         benefit_text=p_ben
