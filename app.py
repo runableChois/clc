@@ -18,8 +18,8 @@ import streamlit.components.v1 as components
 # 1. 페이지 기본 설정 및 모바일 UI 최적화 CSS
 # ==========================================
 st.set_page_config(
-    page_title="세스코 경기서북부 플래너 AI (Pro)",
-    page_icon="💼",
+    page_title="세스코 경기서북부 플래너 AI (Nano Banana 2 Pro)",
+    page_icon="🍌",
     layout="wide"
 )
 
@@ -155,85 +155,51 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. 이미지 생성 엔진 (카톡 고화질 견적 카드용)
+# 3. [나노바나나2] 고품격 비주얼 인포그래픽 제안서 이미지 생성 함수
 # ==========================================
-FONT_PATH = "NanumGothic-Bold.ttf"
-
-def ensure_korean_font():
-    """한글 폰트(나눔고딕) 자동 다운로드 처리"""
-    if not os.path.exists(FONT_PATH):
-        font_url = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf"
-        try:
-            urllib.request.urlretrieve(font_url, FONT_PATH)
-        except Exception as e:
-            st.error(f"폰트 다운로드 실패: {e}")
-
-def create_high_res_quote_card(card_data):
-    """1200x1600 초고해상도 완제품 이미지 카드 생성"""
-    ensure_korean_font()
-    width, height = 1200, 1600
-    img = Image.new('RGB', (width, height), color='#f1f5f9')
-    draw = ImageDraw.Draw(img)
+def generate_nanobanana2_masterpiece_proposal(store_name, industry, solution_text, card_subtitle):
+    """Nano Banana 2(Gemini Imagen) 엔진을 활용하여 세스코 브랜드 스타일의 세로형 9:16 인포그래픽 배너 생성"""
+    api_key = st.secrets.get("GEMINI_API_KEY", "").strip()
+    if not api_key:
+        return None, "Gemini API Key가 Secrets에 설정되지 않았습니다."
     
+    clean_solution = solution_text.replace('\n', ' ').replace('🎁', '').replace('즉시 적용', '')
+
     try:
-        font_brand = ImageFont.truetype(FONT_PATH, 48)
-        font_subhead = ImageFont.truetype(FONT_PATH, 24)
-        font_title = ImageFont.truetype(FONT_PATH, 34)
-        font_item_name = ImageFont.truetype(FONT_PATH, 30)
-        font_price = ImageFont.truetype(FONT_PATH, 36)
-        font_regular = ImageFont.truetype(FONT_PATH, 24)
-        font_small = ImageFont.truetype(FONT_PATH, 20)
-    except Exception:
-        font_brand = font_subhead = font_title = font_item_name = font_price = font_regular = font_small = ImageFont.load_default()
-
-    # 상단 헤더 영역
-    draw.rectangle([(0, 0), (width, 200)], fill='#003b7a')
-    draw.rectangle([(0, 190), (width, 200)], fill='#00a3e0') 
-    
-    draw.text((60, 45), "💎 CESCO 맞춤 솔루션 견적서", fill='#ffffff', font=font_brand)
-    draw.text((60, 125), "세스코 공식 문서 기반 | 현장 맞춤 케어 제안", fill='#dbeafe', font=font_subhead)
-
-    # 견적 제목 영역
-    draw.rectangle([(50, 240), (width - 50, 370)], fill='#ffffff', outline='#cbd5e1', width=2)
-    title_text = card_data.get("title", "맞춤 위생 솔루션 견적")
-    draw.text((80, 268), title_text[:30], fill='#0f172a', font=font_title)
-    
-    subtitle_text = card_data.get("subtitle", "공식 문서 데이터 기준")
-    draw.text((80, 320), subtitle_text[:40], fill='#64748b', font=font_regular)
-
-    # 서비스 항목 카드 출력
-    items = card_data.get("items", [])
-    y_offset = 400
-    for item in items[:4]:
-        draw.rectangle([(50, y_offset), (width - 50, y_offset + 140)], fill='#ffffff', outline='#e2e8f0', width=2)
+        client = genai.Client(api_key=api_key)
         
-        name = item.get("name", "서비스 항목")
-        note = item.get("note", "")
-        price = item.get("price", "상담가")
+        # 플래너님이 주신 가이드라인에 맞춘 초고품격 인포그래픽 프롬프트
+        prompt_template = (
+            f"A professional, high-resolution, vertical (9:16 aspect ratio) one-page proposal infographic for CESCO. "
+            f"The image features a clean, modern digital illustration style with a glossy finish and vibrant, "
+            f"trustworthy navy blue, sky blue, and white corporate color scheme. "
+            f"At the top center, a prominent, stylized CESCO logo with wings and 'CESCO' text. "
+            f"Below the logo, a large, bold title reads: '{store_name} 맞춤형 위생 환경 제안서'. "
+            f"The subtitle below the title reads: '{card_subtitle} ({industry})'. "
+            f"The central area showcases a sleek, modern illustration of a key CESCO device (e.g., '판테온' air purifier or "
+            f"'센스미' air sterilizer), highlighted with light and reflection, sitting on a dynamic, tech-inspired "
+            f"background with glowing circuits and data streams. "
+            f"Around the central device, there are four distinct, professional feature sections with "
+            f"clear, readable Korean text and icons: "
+            f"1. Top Left: [1. 핵심 솔루션] - A shield and gear icon with text: '{clean_solution}'. "
+            f"2. Top Right: [2. 맞춤형 관리] - A magnifying glass and calendar icon with text: '정기적인 점검 및 사후관리'. "
+            f"3. Bottom Left: [3. 기대 효과] - An upward arrow and chart icon with text: '브랜드 가치 상승 및 고객 신뢰도 확보'. "
+            f"4. Bottom Right: [4. 특별 혜택] - A gift box and coin icon with text: '3일 무상 체험 후 결정 및 설치비 면제'. "
+            f"The overall composition is balanced and visually appealing. At the bottom footer, "
+            f"smaller text reads: 'CESCO 경기서북부 담당 플래너 | www.cesco.co.kr'. "
+            f"Text is clear, integrated into the glossy design, and highly readable."
+        )
 
-        draw.text((80, y_offset + 30), name[:20], fill='#0f172a', font=font_item_name)
-        if note:
-            draw.text((80, y_offset + 80), note[:28], fill='#64748b', font=font_small)
-
-        draw.rectangle([(width - 380, y_offset + 30), (width - 80, y_offset + 110)], fill='#eff6ff', outline='#bfdbfe', width=1)
-        draw.text((width - 360, y_offset + 48), price, fill='#003b7a', font=font_price)
+        response = client.models.generate_image(
+            model='imagen-3.0-generate-001',
+            prompt=prompt_template,
+            aspect_ratio='9:16',
+        )
         
-        y_offset += 160
-
-    # 프로모션 배너
-    promo_text = card_data.get("promotion", "")
-    if promo_text:
-        draw.rectangle([(50, y_offset + 10), (width - 50, y_offset + 180)], fill='#e0f2fe', outline='#0284c7', width=2)
-        draw.text((80, y_offset + 35), "🎁 특별 프로모션 & 결합 혜택", fill='#0369a1', font=font_title)
-        draw.text((80, y_offset + 105), promo_text[:45], fill='#0f172a', font=font_regular)
-
-    # 하단 푸터
-    draw.rectangle([(0, height - 130), (width, height)], fill='#0f172a')
-    draw.text((60, height - 95), "📞 서비스 문의 및 신청: 세스코 담당 플래너", fill='#ffffff', font=font_regular)
-    
-    buf = io.BytesIO()
-    img.save(buf, format='PNG')
-    return buf.getvalue()
+        return response.image.bytes_as_png(), None
+        
+    except Exception as e:
+        return None, str(e)
 
 # ==========================================
 # 4. [LOCK] 영업 타겟 분석 시스템 지침 (고정 유지)
@@ -274,7 +240,6 @@ SALES_LOG_PATH = "sales_activity_log.csv"
 EQUIPMENT_LOG_PATH = "team_equipment_inventory.csv"
 
 def load_knowledge_data():
-    """누적 학습 텍스트 및 학습 파일 목록 로드"""
     context = ""
     file_list_str = ""
     if os.path.exists(KNOWLEDGE_BASE_PATH):
@@ -286,7 +251,6 @@ def load_knowledge_data():
     return context, file_list_str
 
 def add_file_to_cumulative_knowledge(uploaded_file):
-    """업로드된 파일(PDF, Excel, CSV)을 지식 베이스에 누적(Append) 학습"""
     extracted_text = ""
     filename = uploaded_file.name
     
@@ -307,12 +271,10 @@ def add_file_to_cumulative_knowledge(uploaded_file):
 
     if extracted_text:
         current_context, current_files = load_knowledge_data()
-        
         if filename in current_files.split(","):
             return False, f"⚠️ `{filename}` 문서는 이미 학습되어 있습니다."
 
         new_context = current_context + f"\n\n--- [학습 문서 시작: {filename}] ---\n" + extracted_text + f"\n--- [학습 문서 끝: {filename}] ---\n"
-        
         with open(KNOWLEDGE_BASE_PATH, "w", encoding="utf-8") as f:
             f.write(new_context)
             
@@ -320,11 +282,10 @@ def add_file_to_cumulative_knowledge(uploaded_file):
         with open(KNOWLEDGE_FILES_PATH, "w", encoding="utf-8") as f:
             f.write(new_files_list)
             
-        return True, f"✅ `{filename}` 문서 학습 완료! 통합 지식 베이스에 추가되었습니다."
-    return False, f"⚠️ `{filename}` 문서에서 텍스트를 추출할 수 없습니다."
+        return True, f"✅ `{filename}` 문서 학습 완료!"
+    return False, f"⚠️ 텍스트를 추출할 수 없습니다."
 
 def delete_all_knowledge_data():
-    """전체 학습 데이터 초기화"""
     if os.path.exists(KNOWLEDGE_BASE_PATH):
         os.remove(KNOWLEDGE_BASE_PATH)
     if os.path.exists(KNOWLEDGE_FILES_PATH):
@@ -334,7 +295,6 @@ knowledge_context, learned_files_str = load_knowledge_data()
 learned_files_list = [f for f in learned_files_str.split(",") if f]
 
 def save_sales_log(planner_name, client_name, proposed_deal, equipment_status, equipment_item, reaction, memo, install_date=None):
-    """영업 일지 데이터 저장 (3일 체험 스케줄 자동 계산 포함)"""
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     today_date_str = install_date if install_date else datetime.now().strftime("%Y-%m-%d")
     
@@ -372,7 +332,6 @@ def save_sales_log(planner_name, client_name, proposed_deal, equipment_status, e
     df.to_csv(SALES_LOG_PATH, index=False, encoding="utf-8-sig")
 
 def load_equipment_inventory():
-    """플래너별 체험장비 보유 대수 로드"""
     if os.path.exists(EQUIPMENT_LOG_PATH):
         df = pd.read_csv(EQUIPMENT_LOG_PATH)
         if "담당팀원" in df.columns:
@@ -389,7 +348,6 @@ def load_equipment_inventory():
     return default_df
 
 def save_equipment_inventory(df):
-    """체험장비 보유 대수 저장"""
     df.to_csv(EQUIPMENT_LOG_PATH, index=False, encoding="utf-8-sig")
 
 # ==========================================
@@ -636,7 +594,7 @@ if "GEMINI_API_KEY" in st.secrets:
     elif selected_faq:
         user_prompt = selected_faq
     elif uploaded_img and not prompt_input and not st.session_state.img_processed:
-        user_prompt = "첨부한 현장 사진을 시각적으로 정밀 진단하고, 8대 세스코 제품 라인업을 바탕으로 [1페이지 현장 영업 브리핑 리포트]를 작성해 주세요."
+        user_prompt = "첨부한 현장 사진을 시각적으로 정밀 진단하고, 8대 제품 라인업을 바탕으로 [1페이지 현장 영업 브리핑 리포트]를 작성해 주세요."
     elif prompt_input:
         user_prompt = prompt_input
 
@@ -723,11 +681,11 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 AI 자동 완성형 카톡 제안서 & 비주얼 제안서 이미지 카드 생성 센터
+    # 📱 AI 자동 완성형 카톡 제안서 & 나노바나나2 인포그래픽 이미지 생성 센터
     # ==========================================
     st.write("---")
-    st.subheader("📋 AI 맞춤형 제안서 및 브랜드 이미지 카드 생성 센터")
-    st.caption("상호명과 업종만 입력하시면, 제미나이 AI가 텍스트 제안서를 작성하고, **고품격 브랜드 이미지 카드(.png)**를 즉시 생성합니다.")
+    st.subheader("📋 AI 맞춤형 제안서 및 Nano Banana 2 인포그래픽 생성 센터")
+    st.caption("상호명과 업종만 입력하시면, 제미나이 AI가 텍스트 제안서를 작성하고, **나노바나나2 엔진이 세스코 로고와 인포그래픽이 포함된 고품격 세로형 배너**를 생성합니다.")
     
     proposal_tab1, proposal_tab2 = st.tabs(["📱 카톡 1페이지 요약 제안서", "📄 특정 제품 1장 상세 제안서"])
     
@@ -740,7 +698,7 @@ if "GEMINI_API_KEY" in st.secrets:
             with c2:
                 auto_loc = st.text_input("지역 / 상권", placeholder="예: 파주 야당역 상권")
                 
-            submitted_auto_kakao = st.form_submit_button("✨ AI 제안서 텍스트 & 브랜드 이미지 카드 생성하기", use_container_width=True)
+            submitted_auto_kakao = st.form_submit_button("✨ AI 제안서 텍스트 & Nano Banana 2 인포그래픽 생성하기", use_container_width=True)
             
         if submitted_auto_kakao:
             if not auto_store or not auto_ind:
@@ -804,97 +762,60 @@ if "GEMINI_API_KEY" in st.secrets:
 지금 바로 세스코 프리미엄 케어를 경험해보세요!
 ━━━━━━━━━━━━━━━━━━━━"""
                     
-                    st.success("✅ AI 텍스트 제안서와 고품격 브랜드 이미지 카드가 완성되었습니다!")
+                    st.success("✅ AI 텍스트 제안서가 완성되었습니다! 이어 Nano Banana 2 인포그래픽 이미지를 생성 중입니다...")
                     st.code(kakao_formatted_text, language="markdown")
                 
-                sections_data = [
-                    {"title": "1. 사업장 진단 요약", "content": f"위치: {auto_loc}\n업종: {auto_ind}\n진단: {ai_sum}"},
-                    {"title": "2. 맞춤형 추천 솔루션", "content": ai_sol},
-                    {"title": "3. 특별 혜택 및 안내", "content": f"혜택: {ai_ben}\n설치 일정: 담당 플래너 협의 후 진행"}
-                ]
-                card_data = {
-                    "title": f"'{auto_store}' 맞춤 위생 솔루션",
-                    "subtitle": f"업종: {auto_ind} | 상권: {auto_loc}",
-                    "items": [
-                        {"name": "1. 사업장 진단 요약", "price": "진단 완료", "note": ai_sum[:30]},
-                        {"name": "2. 맞춤형 추천 솔루션", "price": "맞춤 제안", "note": "세스코 전문 케어"},
-                        {"name": "3. 특별 혜택 및 안내", "price": "3일 무료체험", "note": ai_ben[:30]}
-                    ],
-                    "promotion": "설치비 전액 면제 및 3일 무료 체험 서비스 적용"
-                }
-                img_bytes = create_high_res_quote_card(card_data)
-                
-                st.image(img_bytes, caption=f"브랜드 제안서 이미지 카드 ({auto_store})", use_container_width=True)
-                st.download_button(
-                    label="📥 제안서 이미지 카드 다운로드 (.png)",
-                    data=img_bytes,
-                    file_name=f"CESCO_제안서_{auto_store}.png",
-                    mime="image/png",
-                    use_container_width=True
-                )
+                with st.spinner("Nano Banana 2 엔진이 세스코 로고와 4분할 인포그래픽 디자인을 렌더링 중입니다 (약 10~15초 소요)..."):
+                    img_bytes, err = generate_nanobanana2_masterpiece_proposal(
+                        store_name=auto_store,
+                        industry=auto_ind,
+                        solution_text=ai_sol,
+                        card_subtitle=f"상권: {auto_loc}"
+                    )
+                    
+                    if img_bytes:
+                        st.image(img_bytes, caption=f"Nano Banana 2 인포그래픽 제안서 ({auto_store})", use_container_width=True)
+                        st.download_button(
+                            label="📥 인포그래픽 제안서 이미지 다운로드 (.png)",
+                            data=img_bytes,
+                            file_name=f"CESCO_Proposal_{auto_store}.png",
+                            mime="image/png",
+                            use_container_width=True
+                        )
+                    else:
+                        st.warning(f"⚠️ 이미지 생성 안내: {err}\n\n(위 텍스트 제안서는 정상 복사하여 카카오톡으로 바로 활용하실 수 있습니다.)")
 
     with proposal_tab2:
         with st.form("auto_product_form"):
             auto_prod_name = st.text_input("제안할 세스코 제품명", placeholder="예: 세스코 공기살균기 센스미 / 에어제닉")
             auto_prod_target = st.text_input("타겟 고객 업종", placeholder="예: 대형 병원 로비, 피부과 메디컬 뷰티숍")
             
-            submitted_auto_prod = st.form_submit_button("📄 AI 제품 제안서 & 브랜드 이미지 카드 생성하기", use_container_width=True)
+            submitted_auto_prod = st.form_submit_button("📄 AI 제품 제안서 & Nano Banana 2 인포그래픽 생성하기", use_container_width=True)
             
         if submitted_auto_prod:
             if not auto_prod_name or not auto_prod_target:
                 st.warning("제품명과 타겟 업종은 필수 입력 항목입니다.")
             else:
-                with st.spinner("제미나이 AI가 제품 제안서와 이미지 카드를 생성 중입니다..."):
-                    prod_prompt = (
-                        f"세스코 영업사원이 '{auto_prod_target}' 업종 고객에게 제시할 '{auto_prod_name}' 제품 제안서 내용을 작성해 주세요.\n"
-                        f"아래 JSON 형식으로만 응답해 주세요:\n"
-                        f"{{\n"
-                        f'  "overview_text": "대상 업종 맞춤형 프리미엄 위생 및 공기질 개선 케어",\n'
-                        f'  "spec_text": "UV-C 파워 살균 및 S형 유로 설계로 부유 세균 99.9% 제거",\n'
-                        f'  "benefit_text": "100% 본사 지원 3일 무상 체험 서비스 즉시 적용"\n'
-                        f"}}\n"
+                with st.spinner("Nano Banana 2 엔진이 제품 맞춤형 인포그래픽 배너를 생성 중입니다..."):
+                    img_bytes, err = generate_nanobanana2_masterpiece_proposal(
+                        store_name=auto_prod_name,
+                        industry=auto_prod_target,
+                        solution_text="UV-C 파워 살균 및 99.9% 유해 세균 제거",
+                        card_subtitle="프리미엄 제품 맞춤 제안서"
                     )
-                    chat_prod = client.chats.create(model="gemini-3-flash-preview")
-                    prod_res = chat_prod.send_message(prod_prompt)
                     
-                    try:
-                        json_match = re.search(r'\{.*\}', prod_res.text, re.DOTALL)
-                        if json_match:
-                            parsed_p = json.loads(json_match.group())
-                            p_over = parsed_p.get("overview_text", "")
-                            p_spec = parsed_p.get("spec_text", "")
-                            p_ben = parsed_p.get("benefit_text", "")
-                        else:
-                            p_over = f"대상 업종: {auto_prod_target}"
-                            p_spec = f"제품명: {auto_prod_name} 핵심 스펙"
-                            p_ben = "3일 무상 체험 제공"
-                    except:
-                        p_over = f"제안 제품: {auto_prod_name}"
-                        p_spec = "최첨단 위생 살균 케어"
-                        p_ben = "3일 무상 체험 제공"
-
-                    st.success("✅ 제품 제안서와 브랜드 이미지 카드가 완성되었습니다!")
-                    
-                    prod_card_data = {
-                        "title": f"{auto_prod_name} 맞춤 제안서",
-                        "subtitle": f"타겟 업종: {auto_prod_target}",
-                        "items": [
-                            {"name": "1. 제안 개요", "price": "맞춤 도입", "note": p_over[:30]},
-                            {"name": "2. 핵심 기술 스펙", "price": "99.9% 살균", "note": p_spec[:30]},
-                            {"name": "3. 체험 안내", "price": "3일 무료체험", "note": p_ben[:30]}
-                        ],
-                        "promotion": "100% 본사 지원 3일 무상 체험 서비스 즉시 적용"
-                    }
-                    prod_img_bytes = create_high_res_quote_card(prod_card_data)
-                    
-                    st.image(prod_img_bytes, caption=f"제품 제안서 이미지 카드 ({auto_prod_name})", use_container_width=True)
-                    st.download_button(
-                        label="📥 제품 제안서 이미지 카드 다운로드 (.png)",
-                        data=prod_img_bytes,
-                        file_name=f"CESCO_제품제안서_{auto_prod_name}.png",
-                        mime="image/png",
-                        use_container_width=True
-                    )
+                    if img_bytes:
+                        st.success("✅ 제품 인포그래픽 제안서가 완성되었습니다!")
+                        st.image(img_bytes, caption=f"Nano Banana 2 제품 제안서 ({auto_prod_name})", use_container_width=True)
+                        st.download_button(
+                            label="📥 제품 제안서 이미지 다운로드 (.png)",
+                            data=img_bytes,
+                            file_name=f"CESCO_Product_{auto_prod_name}.png",
+                            mime="image/png",
+                            use_container_width=True
+                        )
+                    else:
+                        st.warning(f"⚠️ 이미지 생성 안내: {err}")
 
     # ==========================================
     # 📝 현장 영업일지 기록 (3일 체험 스케줄 자동 연동)
