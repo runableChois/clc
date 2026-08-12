@@ -155,10 +155,10 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. [나노바나나2] 고품격 비주얼 인포그래픽 제안서 이미지 생성 함수
+# 3. [Nano Banana 2] 고품격 비주얼 인포그래픽 제안서 이미지 생성 함수
 # ==========================================
 def generate_nanobanana2_masterpiece_proposal(store_name, industry, solution_text, card_subtitle):
-    """Nano Banana 2(Gemini Imagen) 엔진을 활용하여 세스코 브랜드 스타일의 세로형 9:16 인포그래픽 배너 생성"""
+    """Nano Banana 2 엔진(Gemini Imagen)을 활용하여 세스코 로고와 4분할 인포그래픽이 포함된 세로형 배너 생성"""
     api_key = st.secrets.get("GEMINI_API_KEY", "").strip()
     if not api_key:
         return None, "Gemini API Key가 Secrets에 설정되지 않았습니다."
@@ -168,14 +168,13 @@ def generate_nanobanana2_masterpiece_proposal(store_name, industry, solution_tex
     try:
         client = genai.Client(api_key=api_key)
         
-        # 플래너님이 주신 가이드라인에 맞춘 초고품격 인포그래픽 프롬프트
         prompt_template = (
             f"A professional, high-resolution, vertical (9:16 aspect ratio) one-page proposal infographic for CESCO. "
             f"The image features a clean, modern digital illustration style with a glossy finish and vibrant, "
             f"trustworthy navy blue, sky blue, and white corporate color scheme. "
             f"At the top center, a prominent, stylized CESCO logo with wings and 'CESCO' text. "
-            f"Below the logo, a large, bold title reads: '{store_name} 맞춤형 위생 환경 제안서'. "
-            f"The subtitle below the title reads: '{card_subtitle} ({industry})'. "
+            f"Below the logo, a large, bold title reads: '{store_name} - 맞춤형 위생 환경 제안서'. "
+            f"The subtitle below the title reads: '업종: {industry} | {card_subtitle}'. "
             f"The central area showcases a sleek, modern illustration of a key CESCO device (e.g., '판테온' air purifier or "
             f"'센스미' air sterilizer), highlighted with light and reflection, sitting on a dynamic, tech-inspired "
             f"background with glowing circuits and data streams. "
@@ -190,13 +189,19 @@ def generate_nanobanana2_masterpiece_proposal(store_name, industry, solution_tex
             f"Text is clear, integrated into the glossy design, and highly readable."
         )
 
-        response = client.models.generate_image(
-            model='imagen-3.0-generate-001',
+        response = client.models.generate_images(
+            model='imagen-3.0-generate-002',
             prompt=prompt_template,
-            aspect_ratio='9:16',
+            config=types.GenerateImagesConfig(
+                number_of_images=1,
+                aspect_ratio="9:16"
+            )
         )
         
-        return response.image.bytes_as_png(), None
+        for generated_image in response.generated_images:
+            return generated_image.image.image_bytes, None
+            
+        return None, "생성된 이미지 데이터를 찾을 수 없습니다."
         
     except Exception as e:
         return None, str(e)
@@ -681,7 +686,7 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 AI 자동 완성형 카톡 제안서 & 나노바나나2 인포그래픽 이미지 생성 센터
+    # 📱 AI 자동 완성형 카톡 제안서 & Nano Banana 2 인포그래픽 이미지 생성 센터
     # ==========================================
     st.write("---")
     st.subheader("📋 AI 맞춤형 제안서 및 Nano Banana 2 인포그래픽 생성 센터")
