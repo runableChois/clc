@@ -18,8 +18,8 @@ import streamlit.components.v1 as components
 # 1. 페이지 기본 설정 및 모바일 UI 최적화 CSS
 # ==========================================
 st.set_page_config(
-    page_title="세스코 경기서북부 플래너 AI (Nano Banana 2 Pro)",
-    page_icon="🍌",
+    page_title="세스코 경기서북부 플래너 AI (Visual Pro)",
+    page_icon="🦅",
     layout="wide"
 )
 
@@ -155,12 +155,13 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. [Nano Banana 2] 일러스트 및 사물 그래픽 중심의 고품격 마케팅 배너 생성 엔진
+# 3. [VISUAL PRO] 텍스트 최소화 & 일러스트 중심의 초고화질 마케팅 배너 엔진
 # ==========================================
-def generate_nanobanana2_artwork_banner(store_name, industry, location, summary_text, solution_text):
+def generate_premium_visual_cesco_banner(store_name, industry, location):
     """
-    텍스트 나열 형식이 아닌, 세스코 브랜드 아이덴티티와 입체적인 사물(공기살균기, 디퓨저), 
-    일러스트 그래픽 요소가 돋보이는 모던한 세로형(9:16) 마케팅 아트워크 배너 생성 엔진
+    [VISUAL PRO] 초고해상도 세로형 캔버스(1200x1600) 위에 텍스트는 과감히 줄이고,
+    세스코 브랜드 캐릭터, 첨단 살균기 일러스트 사물, 네온 빛 패턴을 극대화하여 
+    시각적 임팩트가 압도적인 마케팅 배너를 렌더링합니다.
     """
     FONT_PATH = "NanumGothic-Bold.ttf"
     if not os.path.exists(FONT_PATH):
@@ -170,92 +171,84 @@ def generate_nanobanana2_artwork_banner(store_name, industry, location, summary_
             pass
 
     width, height = 1200, 1600
-    
-    # 세련된 딥 네이비 & 사이버틱 블루 그라데이션 배경 구현
-    img = Image.new('RGB', (width, height), color='#051622')
+    img = Image.new('RGB', (width, height), color='#0f172a')
     draw = ImageDraw.Draw(img)
     
+    # 세련된 딥 네이비 그라데이션 배경
     for y in range(height):
-        r = 5 + int((15 - 5) * (y / height))
-        g = 22 + int((45 - 22) * (y / height))
-        b = 34 + int((80 - 34) * (y / height))
+        r = 15 + int((5 - 15) * (y / height))
+        g = 23 + int((30 - 23) * (y / height))
+        b = 42 + int((60 - 42) * (y / height))
         draw.line([(0, y), (width, y)], fill=(r, g, b))
 
-    # 디자인 일러스트 요소: 빛의 궤적 및 디지털 네온 웨이브 드로잉
-    for i in range(4):
-        offset = i * 250
-        draw.arc([(50 - offset, 200 + offset), (width + 100, 900 + offset)], start=170, end=260, fill='#0284c7', width=4)
-        draw.arc([(100, 600 + offset), (width + 300, 1400 + offset)], start=0, end=50, fill='#38bdf8', width=2)
+    # 브랜드 네온 웨이브 패턴 드로잉
+    for i in range(3):
+        start_y = 400 + i * 400
+        draw.arc([(50, start_y), (width + 150, start_y + 900)], start=170, end=250, fill='#0ea5e9', width=6)
+        draw.arc([(-100, start_y + 150), (width, start_y + 1100)], start=0, end=50, fill='#38bdf8', width=4)
 
     try:
-        f_brand = ImageFont.truetype(FONT_PATH, 38)
-        f_title = ImageFont.truetype(FONT_PATH, 46)
-        f_sub = ImageFont.truetype(FONT_PATH, 26)
-        f_card_t = ImageFont.truetype(FONT_PATH, 28)
-        f_card_b = ImageFont.truetype(FONT_PATH, 22)
-        f_foot = ImageFont.truetype(FONT_PATH, 20)
+        f_brand = ImageFont.truetype(FONT_PATH, 44)
+        f_title = ImageFont.truetype(FONT_PATH, 52)
+        f_sub = ImageFont.truetype(FONT_PATH, 28)
+        f_card_t = ImageFont.truetype(FONT_PATH, 32)
+        f_card_b = ImageFont.truetype(FONT_PATH, 24)
+        f_footer = ImageFont.truetype(FONT_PATH, 20)
     except:
-        f_brand = f_title = f_sub = f_card_t = f_card_b = f_foot = ImageFont.load_default()
+        f_brand = f_title = f_sub = f_card_t = f_card_b = f_footer = ImageFont.load_default()
 
-    # 상단 배너: CESCO 프리미엄 브랜딩 영역
-    draw.rectangle([(0, 0), (width, 260)], fill='#003b7a')
-    draw.rectangle([(0, 250), (width, 260)], fill='#00a3e0') 
+    # 상단 브랜드 헤더 배너
+    header_layer = Image.new('RGBA', (width, 240), (255, 255, 255, 30))
+    img.paste(header_layer, (0, 30), header_layer)
     
-    draw.text((80, 50), "🦅 CESCO PREMIUM ARTWORK SOLUTION", fill='#38bdf8', font=f_brand)
-    draw.text((80, 115), f"'{store_name}' 특별 위생 케어 제안", fill='#ffffff', font=f_title)
-    draw.text((80, 185), f"업종: {industry} | 상권: {location}", fill='#cbd5e1', font=f_sub)
-
-    # 중앙 그래픽 아트워크 공간 (세스코 첨단 장비/사물 일러스트 컨셉 박스)
-    art_box_x, art_box_y, art_box_w, art_box_h = 100, 310, 1000, 320
-    draw.rounded_rectangle([(art_box_x, art_box_y), (art_box_x + art_box_w, art_box_y + art_box_h)], radius=25, fill='#0f172a', outline='#38bdf8', width=3)
+    logo_x = 80
+    draw.text((logo_x, 60), "🦅", fill='#38bdf8', font=ImageFont.truetype(FONT_PATH, 60))
+    draw.text((logo_x + 75, 75), "CESCO", fill='#ffffff', font=f_brand)
     
-    # 일러스트 캐릭터/사물 형상화 그래픽 드로잉
-    # (세스코 공기살균기 및 스마트 디바이스 형상)
-    device_x = art_box_x + 80
-    device_y = art_box_y + 45
-    draw.rounded_rectangle([(device_x, device_y), (device_x + 180, device_y + 230)], radius=15, fill='#1e293b', outline='#00a3e0', width=2)
-    draw.ellipse([(device_x + 55, device_y + 30), (device_x + 125, device_y + 100)], fill='#38bdf8') # 디스플레이/램프
-    draw.text((device_x + 25, device_y + 140), "CESCO AIR", fill='#ffffff', font=ImageFont.truetype(FONT_PATH, 20))
-    draw.text((device_x + 35, device_y + 175), "STERILIZER", fill='#94a3b8', font=ImageFont.truetype(FONT_PATH, 16))
+    draw.text((80, 150), f"'{store_name}' 프리미엄 공간 케어 제안", fill='#ffffff', font=f_sub)
+    draw.text((80, 195), f"업종: {industry} | 위치: {location}", fill='#bae6fd', font=f_sub)
 
-    # 중앙 우측 그래픽 설명 문구
-    draw.text((art_box_x + 310, art_box_y + 60), "✨ 나노바나나2 스마트 공간 케어", fill='#38bdf8', font=f_card_t)
-    draw.text((art_box_x + 310, art_box_y + 115), "바이러스·세균 99.9% 살균 정화", fill='#ffffff', font=f_card_b)
-    draw.text((art_box_x + 310, art_box_y + 155), "실시간 공기질 모니터링 및 자동 탈취", fill='#94a3b8', font=f_card_b)
-    draw.text((art_box_x + 310, art_box_y + 195), "🎁 100% 본사 지원 3일 무상 체험 적용", fill='#38bdf8', font=f_card_b)
+    # -------------------------------------------------------------
+    # 비주얼 일러스트 영역: 세스코 전문가 캐릭터 & 첨단 살균기 사물 시각화
+    # -------------------------------------------------------------
+    # 1. 첨단 살균기 일러스트 박스
+    dev_x, dev_y, dev_w, dev_h = 100, 300, 500, 480
+    draw.rounded_rectangle([(dev_x, dev_y), (dev_x + dev_w, dev_y + dev_h)], radius=30, fill='#1e293b', outline='#00a3e0', width=4)
+    # 살균기 본체 디스플레이 및 램프 형상
+    draw.ellipse([(dev_x + 150, dev_y + 80), (dev_x + 350, dev_y + 280)], fill='#38bdf8')
+    draw.text((dev_x + 160, dev_y + 160), "CESCO", fill='#0f172a', font=ImageFont.truetype(FONT_PATH, 32))
+    draw.text((dev_x + 140, dev_y + 320), "⚡ 99.9% 파워 공기살균", fill='#ffffff', font=f_card_t)
 
-    # 하단 2단 와이드 카드 레이아웃 (솔루션 & 기대효과)
-    card_w, card_h = 1000, 240
-    c1_y = 670
-    c2_y = 940
+    # 2. 세스코 전문가 케어 요원 캐릭터 일러스트 박스
+    char_x, char_y = 630, 300, 470, 480
+    draw.rounded_rectangle([(630, char_y), (630 + char_x, char_y + char_y)], radius=30, fill='#003b7a', outline='#38bdf8', width=4)
+    # 캐릭터 얼굴 및 유니폼 형상 드로잉
+    draw.ellipse([(780, char_y + 70), (880, char_y + 170)], fill='#e0f2fe', outline='#0284c7', width=3) # 얼굴
+    draw.rectangle([(730, char_y + 180), (930, char_y + 380)], fill='#002855', outline='#38bdf8', width=3) # 상체 유니폼
+    draw.text((755, char_y + 240), "CESCO PRO", fill='#ffffff', font=ImageFont.truetype(FONT_PATH, 24))
+    draw.text((750, char_y + 400), "🛡️ 전담 방문 케어 서비스", fill='#38bdf8', font=f_card_t)
 
-    # 1단 카드: 맞춤형 솔루션
-    draw.rounded_rectangle([(100, c1_y), (100 + card_w, c1_y + card_h)], radius=20, fill='#1e293b', outline='#0284c7', width=2)
-    draw.text((140, c1_y + 35), "🛡️ 맞춤형 핵심 솔루션 & 진단", fill='#38bdf8', font=f_card_t)
-    sol_wrapped = [solution_text[i:i+45] for i in range(0, len(solution_text), 45)][:4]
-    sy = c1_y + 90
-    for line in sol_wrapped:
-        draw.text((140, sy), line, fill='#f8fafc', font=f_card_b)
-        sy += 32
+    # -------------------------------------------------------------
+    # 하단 정보 카드: 텍스트는 최소화하고 시각적 임팩트 극대화
+    # -------------------------------------------------------------
+    info_y = 820
+    info_w, info_h = 1000, 320
+    draw.rounded_rectangle([(100, info_y), (100 + info_w, info_y + info_h)], radius=25, fill='#1e293b', outline='#22d3ee', width=3)
+    
+    draw.text((150, info_y + 40), "✨ 3일 무상 체험 프로모션 안내", fill='#38bdf8', font=f_title)
+    draw.text((150, info_y + 130), "• 설치비 전액 면제 및 본사 지원 무상 체험", fill='#ffffff', font=f_card_t)
+    draw.text((150, info_y + 185), "• 매장 청결도 향상 및 네이버 안심마크 획득", fill='#ffffff', font=f_card_t)
+    draw.text((150, info_y + 240), "• 3일 체험 후 마음에 안 들면 100% 무상 회수", fill='#94a3b8', font=f_card_b)
 
-    # 2단 카드: 기대 효과 및 혜택
-    draw.rounded_rectangle([(100, c2_y), (100 + card_w, c2_y + card_h)], radius=20, fill='#1e293b', outline='#0284c7', width=2)
-    draw.text((140, c2_y + 35), "📈 도입 기대 효과 및 프로모션", fill='#38bdf8', font=f_card_t)
-    eff_text = "• 매장 청결도 향상으로 단골 고객 및 네이버 리뷰 평점 상승\n• 설치비 전액 면제 및 3일 무료 체험 후 유료 전환 결정"
-    ey = c2_y + 90
-    for line in eff_text.split('\n'):
-        draw.text((140, ey), line, fill='#f8fafc', font=f_card_b)
-        ey += 35
-
-    # 콜투액션 하단 배너
-    cta_y = 1220
-    draw.rounded_rectangle([(100, cta_y), (100 + card_w, 1380)], radius=20, fill='#003b7a', outline='#38bdf8', width=3)
-    draw.text((140, cta_y + 35), "📞 지금 바로 세스코 프리미엄 서비스를 경험하세요!", fill='#ffffff', font=f_card_t)
-    draw.text((140, cta_y + 85), "“깨끗하고 안전한 공간은 고객의 발걸음을 머물게 합니다.”", fill='#38bdf8', font=f_sub)
+    # CTA 하단 콜투액션 배너
+    cta_y = 1180
+    draw.rounded_rectangle([(100, cta_y), (100 + info_w, cta_y + 150)], radius=20, fill='#003b7a', outline='#38bdf8', width=3)
+    draw.text((150, cta_y + 35), "📞 지금 바로 세스코 프리미엄 케어를 경험하세요!", fill='#ffffff', font=f_card_t)
+    draw.text((150, cta_y + 85), "“깨끗하고 안전한 공간은 고객의 발걸음을 머물게 합니다.”", fill='#38bdf8', font=f_sub)
 
     # 하단 푸터
-    draw.rectangle([(0, height - 100), (width, height)], fill='#020617')
-    draw.text((80, height - 60), "CESCO 경기서북부 담당 플래너 | www.cesco.co.kr | Innovation for Tomorrow", fill='#94a3b8', font=f_foot)
+    draw.rectangle([(0, height - 90), (width, height)], fill='#020617')
+    draw.text((80, height - 55), "CESCO 경기서북부 담당 플래너 | www.cesco.co.kr | Innovation for Tomorrow", fill='#94a3b8', font=f_footer)
     
     buf = io.BytesIO()
     img.save(buf, format='PNG')
@@ -598,7 +591,7 @@ if "GEMINI_API_KEY" in st.secrets:
             if st.button("🙅 '사장님 지금 안 계세요'", use_container_width=True):
                 quick_rejection_prompt = "고객/매장에서 '사장님 지금 안 계세요'라고 거절했을 때, 직원/알바생을 통해 사장님 명함을 확보하고 3일 무료 체험 쿠폰을 전달하는 1초 반박 피칭 스크립트를 안내해 주세요."
             if st.button("🙅 '기존 디퓨저/공청기 있어요'", use_container_width=True):
-                quick_rejection_prompt = "사장님이 '기존에 쓰는 디퓨저나 공기청정기 있어요'라고 거절할 때, 시중 디퓨저의 악취 은폐 한계와 세스코 에어제닉/에어퍼퓸의 살균·분해 차별점을 강조하는 3일 체험 피칭 스크립트를 안내해 주세요."
+                quick_rejection_prompt = "사장님이 '기존에 쓰는 디퓨저나 공기청정기 있어요'라고 거절할 때, 시중 디퓨저의 악취 은폐 한계와 세스코 에어제닉/E어퍼퓸의 살균·분해 차별점을 강조하는 3일 체험 피칭 스크립트를 안내해 주세요."
         
         with q_col2:
             if st.button("🙅 '우린 냄새 안 나고 깨끗해요'", use_container_width=True):
@@ -736,11 +729,11 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 AI 자동 완성형 카톡 제안서 & 나노바나나2 아트워크 배너 생성 센터
+    # 📱 AI 자동 완성형 카톡 제안서 & 비주얼 중심 마케팅 배너 생성 센터
     # ==========================================
     st.write("---")
-    st.subheader("📋 AI 맞춤형 제안서 및 Nano Banana 2 아트워크 배너 생성 센터")
-    st.caption("상호명과 업종만 입력하시면, 제미나이 AI가 텍스트 제안서를 작성하고, **세스코 스마트 디바이스 사물과 일러스트가 녹아든 고품격 마케팅 배너(.png)**를 즉시 생성합니다.")
+    st.subheader("📋 AI 맞춤형 제안서 및 비주얼 일러스트 배너 생성 센터")
+    st.caption("상호명과 업종만 입력하시면, 제미나이 AI가 텍스트 제안서를 작성하고, **세스코 캐릭터 및 사물 일러스트가 돋보이는 고품격 마케팅 배너(.png)**를 즉시 생성합니다.")
     
     proposal_tab1, proposal_tab2 = st.tabs(["📱 카톡 1페이지 요약 제안서", "📄 특정 제품 1장 상세 제안서"])
     
@@ -753,7 +746,7 @@ if "GEMINI_API_KEY" in st.secrets:
             with c2:
                 auto_loc = st.text_input("지역 / 상권", placeholder="예: 파주 야당역 상권")
                 
-            submitted_auto_kakao = st.form_submit_button("✨ AI 제안서 텍스트 & 아트워크 배너 생성하기", use_container_width=True)
+            submitted_auto_kakao = st.form_submit_button("✨ AI 제안서 텍스트 & 비주얼 배너 생성하기", use_container_width=True)
             
         if submitted_auto_kakao:
             if not auto_store or not auto_ind:
@@ -765,7 +758,7 @@ if "GEMINI_API_KEY" in st.secrets:
                         f"아래 JSON 형식으로만 응답해 주세요:\n"
                         f"{{\n"
                         f'  "summary_text": "주방 배수구 악취 차단 및 홀 공기질 향상을 위한 통합 위생 케어 제안",\n'
-                        f'  "solution_text": "1️⃣ 블루스캔 해충 방제 서비스\\n2️⃣ 세스코 에어제닉 향기 케어\\n🎁 3일 무상 체험 즉시 적용",\n'
+                        f'  "solution_text": "1️⃣ 블루ส캔 해충 방제 서비스\\n2️⃣ 세스코 에어제닉 향기 케어\\n🎁 3일 무상 체험 즉시 적용",\n'
                         f'  "benefit_text": "설치비 전액 면제 및 3일 무료 체험 후 결정"\n'
                         f"}}\n"
                     )
@@ -817,22 +810,20 @@ if "GEMINI_API_KEY" in st.secrets:
 지금 바로 세스코 프리미엄 케어를 경험해보세요!
 ━━━━━━━━━━━━━━━━━━━━"""
                     
-                    st.success("✅ AI 텍스트 제안서와 나노바나나2 아트워크 배너가 완성되었습니다!")
+                    st.success("✅ AI 텍스트 제안서와 비주얼 일러스트 배너가 완성되었습니다!")
                     st.code(kakao_formatted_text, language="markdown")
                 
-                img_bytes = generate_nanobanana2_artwork_banner(
+                img_bytes = generate_premium_visual_cesco_banner(
                     store_name=auto_store,
                     industry=auto_ind,
-                    location=auto_loc,
-                    summary_text=ai_sum,
-                    solution_text=ai_sol
+                    location=auto_loc
                 )
                 
-                st.image(img_bytes, caption=f"Nano Banana 2 아트워크 배너 ({auto_store})", use_container_width=True)
+                st.image(img_bytes, caption=f"비주얼 마케팅 배너 ({auto_store})", use_container_width=True)
                 st.download_button(
-                    label="📥 아트워크 배너 이미지 다운로드 (.png)",
+                    label="📥 비주얼 배너 이미지 다운로드 (.png)",
                     data=img_bytes,
-                    file_name=f"CESCO_Artwork_{auto_store}.png",
+                    file_name=f"CESCO_Visual_Banner_{auto_store}.png",
                     mime="image/png",
                     use_container_width=True
                 )
@@ -842,13 +833,13 @@ if "GEMINI_API_KEY" in st.secrets:
             auto_prod_name = st.text_input("제안할 세스코 제품명", placeholder="예: 세스코 공기살균기 센스미 / 에어제닉")
             auto_prod_target = st.text_input("타겟 고객 업종", placeholder="예: 대형 병원 로비, 피부과 메디컬 뷰티숍")
             
-            submitted_auto_prod = st.form_submit_button("📄 AI 제품 제안서 & 아트워크 배너 생성하기", use_container_width=True)
+            submitted_auto_prod = st.form_submit_button("📄 AI 제품 제안서 & 비주얼 배너 생성하기", use_container_width=True)
             
         if submitted_auto_prod:
             if not auto_prod_name or not auto_prod_target:
                 st.warning("제품명과 타겟 업종은 필수 입력 항목입니다.")
             else:
-                with st.spinner("제미나이 AI가 제품 맞춤형 아트워크 배너를 생성 중입니다..."):
+                with st.spinner("제미나이 AI가 제품 맞춤형 비주얼 배너를 생성 중입니다..."):
                     prod_prompt = (
                         f"세스코 영업사원이 '{auto_prod_target}' 업종 고객에게 제시할 '{auto_prod_name}' 제품 제안서 내용을 작성해 주세요.\n"
                         f"아래 JSON 형식으로만 응답해 주세요:\n"
@@ -861,37 +852,19 @@ if "GEMINI_API_KEY" in st.secrets:
                     chat_prod = client.chats.create(model="gemini-3-flash-preview")
                     prod_res = chat_prod.send_message(prod_prompt)
                     
-                    try:
-                        json_match = re.search(r'\{.*\}', prod_res.text, re.DOTALL)
-                        if json_match:
-                            parsed_p = json.loads(json_match.group())
-                            p_over = parsed_p.get("overview_text", "")
-                            p_spec = parsed_p.get("spec_text", "")
-                            p_ben = parsed_p.get("benefit_text", "")
-                        else:
-                            p_over = f"대상 업종: {auto_prod_target}"
-                            p_spec = f"제품명: {auto_prod_name} 핵심 스펙"
-                            p_ben = "3일 무상 체험 제공"
-                    except:
-                        p_over = f"제안 제품: {auto_prod_name}"
-                        p_spec = "최첨단 위생 살균 케어"
-                        p_ben = "3일 무상 체험 제공"
-
-                    st.success("✅ 제품 제안서와 아트워크 배너가 완성되었습니다!")
+                    st.success("✅ 제품 제안서와 비주얼 배너가 완성되었습니다!")
                     
-                    prod_img_bytes = generate_nanobanana2_artwork_banner(
+                    prod_img_bytes = generate_premium_visual_cesco_banner(
                         store_name=auto_prod_name,
                         industry=auto_prod_target,
-                        location="프리미엄 제품 맞춤 제안",
-                        summary_text=p_over,
-                        solution_text=p_spec
+                        location="프리미엄 제품 제안"
                     )
                     
-                    st.image(prod_img_bytes, caption=f"Nano Banana 2 제품 배너 ({auto_prod_name})", use_container_width=True)
+                    st.image(prod_img_bytes, caption=f"비주얼 제품 배너 ({auto_prod_name})", use_container_width=True)
                     st.download_button(
                         label="📥 제품 배너 이미지 다운로드 (.png)",
                         data=prod_img_bytes,
-                        file_name=f"CESCO_Product_Artwork_{auto_prod_name}.png",
+                        file_name=f"CESCO_Product_Visual_{auto_prod_name}.png",
                         mime="image/png",
                         use_container_width=True
                     )
