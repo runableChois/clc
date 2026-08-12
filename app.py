@@ -189,13 +189,12 @@ def generate_premium_visual_cesco_banner(store_name, industry, location):
 
     try:
         f_brand = ImageFont.truetype(FONT_PATH, 44)
-        f_title = ImageFont.truetype(FONT_PATH, 52)
         f_sub = ImageFont.truetype(FONT_PATH, 28)
         f_card_t = ImageFont.truetype(FONT_PATH, 32)
         f_card_b = ImageFont.truetype(FONT_PATH, 24)
         f_footer = ImageFont.truetype(FONT_PATH, 20)
     except:
-        f_brand = f_title = f_sub = f_card_t = f_card_b = f_footer = ImageFont.load_default()
+        f_brand = f_sub = f_card_t = f_card_b = f_footer = ImageFont.load_default()
 
     # 상단 브랜드 헤더 배너
     header_layer = Image.new('RGBA', (width, 240), (255, 255, 255, 30))
@@ -214,19 +213,18 @@ def generate_premium_visual_cesco_banner(store_name, industry, location):
     # 1. 첨단 살균기 일러스트 박스
     dev_x, dev_y, dev_w, dev_h = 100, 300, 500, 480
     draw.rounded_rectangle([(dev_x, dev_y), (dev_x + dev_w, dev_y + dev_h)], radius=30, fill='#1e293b', outline='#00a3e0', width=4)
-    # 살균기 본체 디스플레이 및 램프 형상
     draw.ellipse([(dev_x + 150, dev_y + 80), (dev_x + 350, dev_y + 280)], fill='#38bdf8')
     draw.text((dev_x + 160, dev_y + 160), "CESCO", fill='#0f172a', font=ImageFont.truetype(FONT_PATH, 32))
     draw.text((dev_x + 140, dev_y + 320), "⚡ 99.9% 파워 공기살균", fill='#ffffff', font=f_card_t)
 
     # 2. 세스코 전문가 케어 요원 캐릭터 일러스트 박스
-    char_x, char_y = 630, 300, 470, 480
-    draw.rounded_rectangle([(630, char_y), (630 + char_x, char_y + char_y)], radius=30, fill='#003b7a', outline='#38bdf8', width=4)
-    # 캐릭터 얼굴 및 유니폼 형상 드로잉
-    draw.ellipse([(780, char_y + 70), (880, char_y + 170)], fill='#e0f2fe', outline='#0284c7', width=3) # 얼굴
-    draw.rectangle([(730, char_y + 180), (930, char_y + 380)], fill='#002855', outline='#38bdf8', width=3) # 상체 유니폼
-    draw.text((755, char_y + 240), "CESCO PRO", fill='#ffffff', font=ImageFont.truetype(FONT_PATH, 24))
-    draw.text((750, char_y + 400), "🛡️ 전담 방문 케어 서비스", fill='#38bdf8', font=f_card_t)
+    char_w, char_h = 470, 480
+    char_x, char_y = 630, 300
+    draw.rounded_rectangle([(char_x, char_y), (char_x + char_w, char_y + char_h)], radius=30, fill='#003b7a', outline='#38bdf8', width=4)
+    draw.ellipse([(char_x + 150, char_y + 70), (char_x + 250, char_y + 170)], fill='#e0f2fe', outline='#0284c7', width=3) # 얼굴
+    draw.rectangle([(char_x + 100, char_y + 180), (char_x + 300, char_y + 380)], fill='#002855', outline='#38bdf8', width=3) # 상체 유니폼
+    draw.text((char_x + 125, char_y + 240), "CESCO PRO", fill='#ffffff', font=ImageFont.truetype(FONT_PATH, 24))
+    draw.text((char_x + 120, char_y + 400), "🛡️ 전담 방문 케어 서비스", fill='#38bdf8', font=f_card_t)
 
     # -------------------------------------------------------------
     # 하단 정보 카드: 텍스트는 최소화하고 시각적 임팩트 극대화
@@ -235,7 +233,7 @@ def generate_premium_visual_cesco_banner(store_name, industry, location):
     info_w, info_h = 1000, 320
     draw.rounded_rectangle([(100, info_y), (100 + info_w, info_y + info_h)], radius=25, fill='#1e293b', outline='#22d3ee', width=3)
     
-    draw.text((150, info_y + 40), "✨ 3일 무상 체험 프로모션 안내", fill='#38bdf8', font=f_title)
+    draw.text((150, info_y + 40), "✨ 3일 무상 체험 프로모션 안내", fill='#38bdf8', font=f_card_t)
     draw.text((150, info_y + 130), "• 설치비 전액 면제 및 본사 지원 무상 체험", fill='#ffffff', font=f_card_t)
     draw.text((150, info_y + 185), "• 매장 청결도 향상 및 네이버 안심마크 획득", fill='#ffffff', font=f_card_t)
     draw.text((150, info_y + 240), "• 3일 체험 후 마음에 안 들면 100% 무상 회수", fill='#94a3b8', font=f_card_b)
@@ -591,7 +589,7 @@ if "GEMINI_API_KEY" in st.secrets:
             if st.button("🙅 '사장님 지금 안 계세요'", use_container_width=True):
                 quick_rejection_prompt = "고객/매장에서 '사장님 지금 안 계세요'라고 거절했을 때, 직원/알바생을 통해 사장님 명함을 확보하고 3일 무료 체험 쿠폰을 전달하는 1초 반박 피칭 스크립트를 안내해 주세요."
             if st.button("🙅 '기존 디퓨저/공청기 있어요'", use_container_width=True):
-                quick_rejection_prompt = "사장님이 '기존에 쓰는 디퓨저나 공기청정기 있어요'라고 거절할 때, 시중 디퓨저의 악취 은폐 한계와 세스코 에어제닉/E어퍼퓸의 살균·분해 차별점을 강조하는 3일 체험 피칭 스크립트를 안내해 주세요."
+                quick_rejection_prompt = "사장님이 '기존에 쓰는 디퓨저나 공기청정기 있어요'라고 거절할 때, 시중 디퓨저의 악취 은폐 한계와 세스코 에어제닉/에어퍼퓸의 살균·분해 차별점을 강조하는 3일 체험 피칭 스크립트를 안내해 주세요."
         
         with q_col2:
             if st.button("🙅 '우린 냄새 안 나고 깨끗해요'", use_container_width=True):
@@ -758,7 +756,7 @@ if "GEMINI_API_KEY" in st.secrets:
                         f"아래 JSON 형식으로만 응답해 주세요:\n"
                         f"{{\n"
                         f'  "summary_text": "주방 배수구 악취 차단 및 홀 공기질 향상을 위한 통합 위생 케어 제안",\n'
-                        f'  "solution_text": "1️⃣ 블루ส캔 해충 방제 서비스\\n2️⃣ 세스코 에어제닉 향기 케어\\n🎁 3일 무상 체험 즉시 적용",\n'
+                        f'  "solution_text": "1️⃣ 블루스캔 해충 방제 서비스\\n2️⃣ 세스코 에어제닉 향기 케어\\n🎁 3일 무상 체험 즉시 적용",\n'
                         f'  "benefit_text": "설치비 전액 면제 및 3일 무료 체험 후 결정"\n'
                         f"}}\n"
                     )
