@@ -241,7 +241,7 @@ def generate_airzenic_infographic_card():
     
     bx_l = 60
     by_l = c_start_y + 50
-    draw.rounded_rectangle([(bx_l, by_l), (bx_l + box_w, by_l + box_h)], radius=15, fill='#ffffff', outline='#0284c7', width=3)
+    draw.rounded_rectangle([(bx_l, by_l), (bx_l + box_w, by_l + box_h)], radius=15, fill='#ffffff', outline='#003b7a', width=3)
     draw.text((bx_l + 30, by_l + 25), "👑 에어제닉 프리미엄형", fill='#003b7a', font=f_card_t)
     draw.text((bx_l + 30, by_l + 65), "스마트 센서 및 다양한 향기 옵션 제공", fill='#475569', font=f_card_d)
     draw.text((bx_l + 30, by_l + 105), "250,000원", fill='#0284c7', font=f_price)
@@ -307,7 +307,7 @@ CLC_AI_SALES_TOOL_INSTRUCTION = """
 """
 
 # ==========================================
-# 5. 데이터 I/O 및 누적 문서 학습 (RAG) 함수
+# 5. 데이터 I/O 및 누적 문서 학습 (RAG) 함수 (안정성 강화)
 # ==========================================
 KNOWLEDGE_BASE_PATH = "cesco_knowledge_base.txt"
 KNOWLEDGE_FILES_PATH = "cesco_knowledge_files_list.txt"
@@ -329,20 +329,24 @@ def add_file_to_cumulative_knowledge(uploaded_file):
     extracted_text = ""
     filename = uploaded_file.name
     
-    if filename.endswith(('.xlsx', '.xls')):
-        df = pd.read_excel(uploaded_file, sheet_name=0)
-        df = df.dropna(how="all")
-        extracted_text = df.to_markdown(index=False)
-    elif filename.endswith('.csv'):
-        df = pd.read_csv(uploaded_file)
-        df = df.dropna(how="all")
-        extracted_text = df.to_markdown(index=False)
-    elif filename.endswith('.pdf'):
-        reader = PdfReader(uploaded_file)
-        for page in reader.pages:
-            text = page.extract_text()
-            if text:
-                extracted_text += text + "\n"
+    try:
+        if filename.endswith(('.xlsx', '.xls')):
+            df = pd.read_excel(uploaded_file, sheet_name=0)
+            df = df.dropna(how="all")
+            extracted_text = df.to_markdown(index=False)
+        elif filename.endswith('.csv'):
+            df = pd.read_csv(uploaded_file)
+            df = df.dropna(how="all")
+            extracted_text = df.to_markdown(index=False)
+        elif filename.endswith('.pdf'):
+            uploaded_file.seek(0) # 스트림 포인터 초기화
+            reader = PdfReader(uploaded_file)
+            for page in reader.pages:
+                text = page.extract_text()
+                if text:
+                    extracted_text += text + "\n"
+    except Exception as e:
+        return False, f"⚠️ `{filename}` 파일 읽기 실패 (손상되었거나 암호화된 파일일 수 있습니다): {str(e)}"
 
     if extracted_text:
         current_context, current_files = load_knowledge_data()
@@ -358,7 +362,7 @@ def add_file_to_cumulative_knowledge(uploaded_file):
             f.write(new_files_list)
             
         return True, f"✅ `{filename}` 문서 학습 완료!"
-    return False, f"⚠️ 텍스트를 추출할 수 없습니다."
+    return False, f"⚠️ 텍스트를 추출할 수 없습니다 (빈 문서이거나 지원하지 않는 형식입니다)."
 
 def delete_all_knowledge_data():
     if os.path.exists(KNOWLEDGE_BASE_PATH):
