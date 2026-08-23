@@ -155,9 +155,9 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. [AIRZENIC INFOGRAPHIC PRO] 세스코 에어제닉 전용 고품격 인포그래픽 렌더링 엔진
+# 3. [RAG-Driven Infographic] 학습 데이터 연동형 인포그래픽 렌더링 엔진
 # ==========================================
-def generate_airzenic_infographic_card():
+def generate_airzenic_infographic_card(rag_data=None):
     FONT_PATH = "NanumGothic-Bold.ttf"
     if not os.path.exists(FONT_PATH):
         try:
@@ -165,7 +165,12 @@ def generate_airzenic_infographic_card():
         except:
             pass
 
-    width, height = 1200, 2100
+    prem_price = rag_data.get("prem_price", "250,000원") if rag_data else "250,000원"
+    std_price = rag_data.get("std_price", "190,000원") if rag_data else "190,000원"
+    prem_desc = rag_data.get("prem_desc", "스마트 센서 및 다양한 향기 옵션 제공") if rag_data else "스마트 센서 및 다양한 향기 옵션 제공"
+    std_desc = rag_data.get("std_desc", "고정된 향기 설정, 센서 미포함 보급형") if rag_data else "고정된 향기 설정, 센서 미포함 보급형"
+
+    width, height = 1200, 2150
     img = Image.new('RGB', (width, height), color='#f8fafc')
     draw = ImageDraw.Draw(img)
 
@@ -180,6 +185,7 @@ def generate_airzenic_infographic_card():
     except:
         f_header_t = f_header_s = f_section_t = f_card_t = f_card_d = f_price = f_footer = ImageFont.load_default()
 
+    # 1. 헤더 섹션
     draw.rectangle([(0, 0), (width, 180)], fill='#003b7a')
     draw.rectangle([(0, 170), (width, 180)], fill='#00a3e0')
     
@@ -187,6 +193,7 @@ def generate_airzenic_infographic_card():
     draw.text((60, 70), "악취는 없애고 순간의 향기로 공간을 채우는, 세스코 에어제닉!", fill='#ffffff', font=f_header_t)
     draw.text((60, 125), "우리 집 / 사무실 공간 공기, 지금 어떤가요?", fill='#cbd5e1', font=f_header_s)
 
+    # 2. 문제점 그리드 섹션 (3x2)
     draw.text((60, 215), "🚨 이런 공간의 고민, 세스코가 해결합니다", fill='#0f172a', font=f_section_t)
     
     problems = [
@@ -198,7 +205,7 @@ def generate_airzenic_infographic_card():
         ("방향제 스프레이의 인위적인 잔향", "뿌릴 때만 잠시 가려질 뿐, 인위적인 향이 남아 불쾌합니다.")
     ]
 
-    p_w, p_h = 525, 120
+    p_w, p_h = 525, 125
     p_start_y = 265
     for idx, (p_title, p_desc) in enumerate(problems):
         col = idx % 2
@@ -207,21 +214,22 @@ def generate_airzenic_infographic_card():
         py = p_start_y + row * (p_h + 15)
         
         draw.rounded_rectangle([(px, py), (px + p_w, py + p_h)], radius=12, fill='#ffffff', outline='#cbd5e1', width=2)
-        draw.text((px + 20, py + 20), f"• {p_title}", fill='#003b7a', font=f_card_t)
+        draw.text((px + 20, py + 18), f"• {p_title}", fill='#003b7a', font=f_card_t)
         
         desc_lines = [p_desc[i:i+30] for i in range(0, len(p_desc), 30)]
-        dy = py + 55
+        dy = py + 52
         for line in desc_lines:
             draw.text((px + 20, dy), line, fill='#475569', font=f_card_d)
             dy += 22
 
-    s_start_y = 715
+    # 3. 솔루션 4단계 섹션
+    s_start_y = 735
     draw.text((60, s_start_y), "✨ CESCO Airzenic 4-Step Solution", fill='#0f172a', font=f_section_t)
 
     solutions = [
         ("POINT 01", "지능형 센서 감지", "Cesco Airzenic의 센서가 사람의 움직임을 실시간으로 감지하여 자동으로 탈취/발향합니다."),
-        ("POINT 02", "순간 발향 및 강력 탈취", "즉각적으로 미세한 탈취제와 향기를 분사하여 불쾌한 냄새를 제거하고 공간을 향기로 채웁니다."),
-        ("POINT 03", "Cesco 프리미엄 향기 포트폴리오", "전문 조향사가 설계한 다양한 프리미엄 향기 중 공간과 선호도에 맞춰 선택 가능합니다."),
+        ("POINT 02", "순간 발향 및 강력 탈취", "즉각적으로 미세한 탈취제와 향기를 분사하여 불쾌한 냄새를 제거하고 공간을 채웁니다."),
+        ("POINT 03", "프리미엄 향기 포트폴리오", "전문 조향사가 설계한 다양한 프리미엄 향기 중 공간과 선호도에 맞춰 선택 가능합니다."),
         ("POINT 04", "간편한 설치 및 리필 교체", "벽걸이/스탠드형으로 어디든 설치 가능하며, 누구나 쉽게 리필을 교체할 수 있습니다.")
     ]
 
@@ -233,28 +241,31 @@ def generate_airzenic_infographic_card():
         draw.text((360, s_y + 32), s_desc, fill='#334155', font=f_card_d)
         s_y += 100
 
-    c_start_y = 1175
-    draw.text((60, c_start_y), "📦 우리 집 / 사무실 공간에 맞는 서비스 선택", fill='#0f172a', font=f_section_t)
+    # 4. 서비스 모델 비교 섹션
+    c_start_y = 1195
+    draw.text((60, c_start_y), "📦 학습 단가표 기반 서비스 및 가격 선택", fill='#0f172a', font=f_section_t)
 
     box_w = 525
-    box_h = 180
+    box_h = 185
     
     bx_l = 60
     by_l = c_start_y + 50
     draw.rounded_rectangle([(bx_l, by_l), (bx_l + box_w, by_l + box_h)], radius=15, fill='#ffffff', outline='#003b7a', width=3)
-    draw.text((bx_l + 30, by_l + 25), "👑 에어제닉 프리미엄형", fill='#003b7a', font=f_card_t)
-    draw.text((bx_l + 30, by_l + 65), "스마트 센서 및 다양한 향기 옵션 제공", fill='#475569', font=f_card_d)
-    draw.text((bx_l + 30, by_l + 105), "250,000원", fill='#0284c7', font=f_price)
-    draw.text((bx_l + 30, by_l + 145), "※ 향기 카트리지 별도 구매", fill='#94a3b8', font=f_footer)
+    draw.text((bx_l + 30, by_l + 22), "👑 에어제닉 프리미엄형", fill='#003b7a', font=f_card_t)
+    draw.text((bx_l + 30, by_l + 60), prem_desc[:32], fill='#475569', font=f_card_d)
+    draw.text((bx_l + 30, by_l + 102), prem_price, fill='#0284c7', font=f_price)
+    draw.text((bx_l + 30, by_l + 145), "※ 업로드된 단가표 최신 기준", fill='#94a3b8', font=f_footer)
 
     bx_r = 615
     by_r = c_start_y + 50
     draw.rounded_rectangle([(bx_r, by_r), (bx_r + box_w, by_r + box_h)], radius=15, fill='#ffffff', outline='#cbd5e1', width=2)
-    draw.text((bx_r + 30, by_r + 25), "📦 에어제닉 스탠다드형", fill='#0f172a', font=f_card_t)
-    draw.text((bx_r + 30, by_r + 65), "고정된 향기 설정, 센서 미포함 보급형", fill='#475569', font=f_card_d)
-    draw.text((bx_r + 30, by_r + 105), "190,000원", fill='#334155', font=f_price)
+    draw.text((bx_r + 30, by_r + 22), "📦 에어제닉 스탠다드형", fill='#0f172a', font=f_card_t)
+    draw.text((bx_r + 30, by_r + 60), std_desc[:32], fill='#475569', font=f_card_d)
+    draw.text((bx_r + 30, by_r + 102), std_price, fill='#334155', font=f_price)
+    draw.text((bx_r + 30, by_r + 145), "※ 기본형 표준 스펙", fill='#94a3b8', font=f_footer)
 
-    ui_y = 1435
+    # 5. 브랜딩 및 UI 섹션
+    ui_y = 1460
     draw.rounded_rectangle([(60, ui_y), (1140, ui_y + 130)], radius=15, fill='#0f172a', outline='#38bdf8', width=2)
     draw.ellipse([(95, ui_y + 25), (95 + 80, ui_y + 25 + 80)], fill='#38bdf8')
     draw.text((115, ui_y + 52), "황태", fill='#0f172a', font=ImageFont.truetype(FONT_PATH, 22))
@@ -262,7 +273,8 @@ def generate_airzenic_infographic_card():
     draw.text((195, ui_y + 72), "14시간 전 • 프로필 업데이트", fill='#94a3b8', font=f_footer)
     draw.text((1000, ui_y + 52), "❤️ 💬", fill='#38bdf8', font=f_card_t)
 
-    cta_y = 1625
+    # CTA 배너
+    cta_y = 1640
     draw.rounded_rectangle([(60, cta_y), (1140, cta_y + 150)], radius=15, fill='#003b7a', outline='#38bdf8', width=3)
     draw.text((95, cta_y + 35), "📞 지금 바로 세스코 에어제닉 3일 무상 체험을 신청하세요!", fill='#ffffff', font=f_card_t)
     draw.text((95, cta_y + 80), "“깨끗하고 향기로운 공간은 고객의 발걸음을 머물게 합니다.”", fill='#38bdf8', font=f_header_s)
@@ -297,17 +309,10 @@ CLC_AI_SALES_TOOL_INSTRUCTION = """
 6. 향기 제품: '에어퍼퓸200', '에어제닉' (자동 향기 분사 및 악취 분해)
 7. 화장실 케어 제품: '프레쉬제닉', '핸드제닉', '새니제닉'
 8. 날벌레 방지 제품: '에어커튼', '포충등'
-
-[플래너 상권 및 영업 전략 수립 규칙]
-상권이나 영업 전략을 물어보면 아래 4가지 요소를 중심으로 실전적인 동선과 화법을 구성하세요.
-1. 보유 장비 맞춤 타겟 업종 선정 (예: 뷰티숍, 로비형 카페 등)
-2. 구체적 상권 동선 및 층별 침투 전략
-3. 사장님을 사로잡는 킬러 오프닝 피칭 화법 및 무상 체험 유도
-4. 3일 무상 체험 후 유료 계약(Closing) 콜 노하우
 """
 
 # ==========================================
-# 5. 데이터 I/O 및 누적 문서 학습 (RAG) 함수 (안정성 강화)
+# 5. 데이터 I/O 및 누적 문서 학습 (RAG) 함수
 # ==========================================
 KNOWLEDGE_BASE_PATH = "cesco_knowledge_base.txt"
 KNOWLEDGE_FILES_PATH = "cesco_knowledge_files_list.txt"
@@ -339,14 +344,14 @@ def add_file_to_cumulative_knowledge(uploaded_file):
             df = df.dropna(how="all")
             extracted_text = df.to_markdown(index=False)
         elif filename.endswith('.pdf'):
-            uploaded_file.seek(0) # 스트림 포인터 초기화
+            uploaded_file.seek(0)
             reader = PdfReader(uploaded_file)
             for page in reader.pages:
                 text = page.extract_text()
                 if text:
                     extracted_text += text + "\n"
     except Exception as e:
-        return False, f"⚠️ `{filename}` 파일 읽기 실패 (손상되었거나 암호화된 파일일 수 있습니다): {str(e)}"
+        return False, f"⚠️ `{filename}` 파일 읽기 실패: {str(e)}"
 
     if extracted_text:
         current_context, current_files = load_knowledge_data()
@@ -362,7 +367,7 @@ def add_file_to_cumulative_knowledge(uploaded_file):
             f.write(new_files_list)
             
         return True, f"✅ `{filename}` 문서 학습 완료!"
-    return False, f"⚠️ 텍스트를 추출할 수 없습니다 (빈 문서이거나 지원하지 않는 형식입니다)."
+    return False, f"⚠️ 텍스트를 추출할 수 없습니다."
 
 def delete_all_knowledge_data():
     if os.path.exists(KNOWLEDGE_BASE_PATH):
@@ -755,13 +760,13 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 AI 자동 완성형 카톡 제안서 & 에어제닉 인포그래픽 생성 센터
+    # 📱 AI 자동 완성형 카톡 제안서 & 에어제닉 인포그래픽 생성 센터 (내용 완전 동기화 & 500자 최적화)
     # ==========================================
     st.write("---")
     st.subheader("📋 CLC AI영업툴 - 맞춤형 제안서 및 에어제닉 인포그래픽 센터")
-    st.caption("기획하신 **세스코 에어제닉(Airzenic) 전용 인포그래픽 제안서**(문제점 3x2, 4단계 솔루션, 가격 비교, 황태팀장 브랜딩)를 원터치로 생성합니다.")
+    st.caption("고객 니즈 분석과 RAG 학습 단가표가 완벽하게 동기화된 500자 최적화 카톡 제안서와 인포그래픽을 생성합니다.")
     
-    proposal_tab1, proposal_tab2 = st.tabs(["📱 카톡 1페이지 요약 제안서", "🌿 에어제닉 상세 인포그래픽 (황태팀장 Pro)"])
+    proposal_tab1, proposal_tab2 = st.tabs(["📱 카톡 맞춤형 제안서 (500자 최적화)", "🌿 에어제닉 상세 인포그래픽 (단가 연동)"])
     
     with proposal_tab1:
         with st.form("auto_kakao_form"):
@@ -772,47 +777,68 @@ if "GEMINI_API_KEY" in st.secrets:
             with c2:
                 auto_loc = st.text_input("지역 / 상권", placeholder="예: 파주 야당역 상권")
                 
-            submitted_auto_kakao = st.form_submit_button("✨ AI 카톡 제안서 텍스트 생성하기", use_container_width=True)
+            submitted_auto_kakao = st.form_submit_button("✨ 고객 니즈 맞춤형 카톡 제안서 생성하기 (약 400~500자)", use_container_width=True)
             
         if submitted_auto_kakao:
             if not auto_store or not auto_ind:
                 st.warning("상호명과 업종을 입력해 주세요.")
             else:
-                kakao_formatted_text = f"""━━━━━━━━━━━━━━━━━━━━
-🌿 [세스코(CESCO) 에어제닉 향기·탈취 솔루션 제안서]
-━━━━━━━━━━━━━━━━━━━━
+                with st.spinner("CLC AI영업툴이 고객 니즈 분석 및 제안서를 작성 중입니다..."):
+                    # RAG 데이터를 참조하여 고객 니즈(Pain Point)를 해소하는 맞춤형 제안서 생성 (약 400~500자)
+                    ai_proposal_prompt = (
+                        f"당신은 소상공인 B2C 영업 전문가 'CLC AI영업툴'입니다.\n"
+                        f"'{auto_store}'({auto_ind}, 지역: {auto_loc}) 대표님에게 보낼 카카오톡 제안서를 작성해 주세요.\n"
+                        f"1. 고객 관점에서 해당 업종이 겪는 대표적인 위생/냄새 고민(Needs/Pain Point) 1가지를 예리하게 분석하고 지적하세요.\n"
+                        f"2. 세스코 에어제닉의 지능형 센서 감지 및 탈취 솔루션으로 그 고민이 어떻게 해소되는지 두괄식으로 명쾌하게 제시하세요.\n"
+                        f"3. 3일 무상 체험 혜택과 함께 부담 없는 결정을 유도하는 문장으로 마무리하세요.\n"
+                        f"4. 전체 글자수는 가독성이 가장 좋은 **400자 ~ 500자 내외**로 엄격히 제한하고, 이모지와 불렛 포인트를 활용해 한눈에 들어오게 작성해 주세요.\n"
+                        f"참고할 학습 단가/제품 데이터 요약: {knowledge_context[:1500]}"
+                    )
+                    try:
+                        chat_kakao = client.chats.create(model="gemini-3-flash-preview")
+                        res_k = chat_kakao.send_message(ai_proposal_prompt)
+                        kakao_formatted_text = res_k.text
+                    except:
+                        kakao_formatted_text = f"""🌿 [세스코 에어제닉 공간 케어 제안서]
 
-안녕하세요! 
-'{auto_store}' 대표님, 사업장에 가장 최적화된 악취 제거 및 향기 케어 솔루션을 제안드립니다. 🔬✨
+안녕하세요 '{auto_store}' 대표님! 
+{auto_loc}에서 {auto_ind}을 운영하시며 혹시 화장실 잔류 냄새나 홀 공기질로 고민은 없으셨나요? 
 
-━━━━━━━━━━━━━━━━━━━━
-📍 1. 사업장 진단 요약
-━━━━━━━━━━━━━━━━━━━━
-• 위치 및 상권: {auto_loc}
-• 업종({auto_ind}): 화장실 및 홀 잔류 악취 완벽 차단
+고객들은 매장의 첫인상을 '향기'로 기억합니다. 
 
-━━━━━━━━━━━━━━━━━━━━
-🛡️ 2. 추천 제품: 세스코 에어제닉
-━━━━━━━━━━━━━━━━━━━━
-• 지능형 센서 감지 자동 탈취/발향
-• 프리미엄 조향사 설계 향기 카트리지
-• 3일 무상 체험 후 결정 가능
+🛡️ **세스코 에어제닉 솔루션**
+• 지능형 센서가 움직임을 감지해 순간 탈취 및 향기 분사
+• 불쾌한 냄새는 잡고 프리미엄 향기로 공간 가득 채움
 
-━━━━━━━━━━━━━━━━━━━━
-💡 "상쾌한 향기는 고객의 발걸음을 머물게 합니다."
-지금 바로 세스코 프리미엄 케어를 경험해보세요!
-━━━━━━━━━━━━━━━━━━━━"""
-                st.success("✅ 카톡 제안서 텍스트가 완성되었습니다!")
+🎁 **특별 혜택**
+• 설치비 전액 면제 및 3일 무상 체험 후 결정 가능!
+
+지금 바로 상쾌한 매장 환경을 경험해 보세요! ✨"""
+
+                st.success("✅ 고객 니즈 맞춤형 카톡 제안서가 완성되었습니다!")
                 st.code(kakao_formatted_text, language="markdown")
 
     with proposal_tab2:
         st.write("🌿 **세스코 에어제닉(Airzenic) 공식 인포그래픽 프로포절**")
-        st.caption("기획하신 3x2 문제점 그리드, 4단계 Solution, 가격 비교표, 황태팀장 브랜딩 UI가 모두 담긴 고품격 인포그래픽을 생성합니다.")
+        st.caption("업로드하신 단가표 문서(RAG)의 실제 가격과 스펙이 이미지 하단 가격 비교 박스에 실시간 반영됩니다.")
         
+        rag_parsed_data = {"prem_price": "250,000원", "std_price": "190,000원", "prem_desc": "스마트 센서 및 다양한 향기 옵션", "std_desc": "고정 향기 설정, 센서 미포함"}
+        if knowledge_context:
+            try:
+                extract_prompt = f"아래 문서에서 에어제닉 가격과 설명을 찾아 정확히 이 JSON 형식으로만 답해줘: {{\"prem_price\": \"금액\", \"std_price\": \"금액\", \"prem_desc\": \"설명\", \"std_desc\": \"설명\"}}\n문서 내용:\n{knowledge_context[:4000]}"
+                res_json = client.chats.create(model="gemini-3-flash-preview").send_message(extract_prompt).text
+                m = re.search(r'\{.*\}', res_json, re.DOTALL)
+                if m:
+                    rag_parsed_data = json.loads(m.group())
+            except:
+                pass
+
+        st.info(f"💡 **현재 적용된 학습 단가:** 프리미엄형 `{rag_parsed_data.get('prem_price')}` / 스탠다드형 `{rag_parsed_data.get('std_price')}`")
+
         if st.button("🚀 에어제닉 인포그래픽 제안서 카드 생성하기 (.png)", use_container_width=True):
-            with st.spinner("에어제닉 인포그래픽 템플릿을 정밀 렌더링 중입니다..."):
-                img_bytes = generate_airzenic_infographic_card()
-                st.image(img_bytes, caption="세스코 에어제닉 상세 인포그래픽 제안서", use_container_width=True)
+            with st.spinner("학습 단가표를 반영하여 고품격 인포그래픽을 렌더링 중입니다..."):
+                img_bytes = generate_airzenic_infographic_card(rag_data=rag_parsed_data)
+                st.image(img_bytes, caption="세스코 에어제닉 상세 인포그래픽 제안서 (단가 연동)", use_container_width=True)
                 st.download_button(
                     label="📥 에어제닉 인포그래픽 다운로드 (.png)",
                     data=img_bytes,
