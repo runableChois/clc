@@ -15,7 +15,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # ==========================================
-# 1. 페이지 기본 설정 및 모바일 UI 최적화 CSS
+# 1. 페이지 기본 설정 및 모바일 UI 최적화 CSS (아이콘 깨짐 방지 래퍼 추가)
 # ==========================================
 st.set_page_config(
     page_title="CLC AI영업툴 (Pro)",
@@ -67,19 +67,35 @@ st.markdown("""
         z-index: 100 !important;
     }
     
+    /* 모바일 사이드바 토글 버튼 가독성 고도화 (글자 깨짐 방지 및 << >> 대체) */
     [data-testid="collapsedControl"], [data-testid="stSidebarCollapseButton"] {
         display: flex !important;
         visibility: visible !important;
         color: #ffffff !important;
         background-color: #003b7a !important;
         border-radius: 8px !important;
-        padding: 4px !important;
+        padding: 6px 10px !important;
         margin-top: 5px !important;
         margin-left: 5px !important;
         box-shadow: 0 2px 5px rgba(0,0,0,0.2) !important;
     }
     
-    [data-testid="collapsedControl"] button, [data-testid="stSidebarCollapseButton"] button {
+    [data-testid="collapsedControl"] span, [data-testid="stSidebarCollapseButton"] span,
+    [data-testid="collapsedControl"] p, [data-testid="stSidebarCollapseButton"] p {
+        font-size: 0px !important;
+    }
+    
+    [data-testid="collapsedControl"]::after {
+        content: "<<" !important;
+        font-size: 14px !important;
+        font-weight: bold !important;
+        color: #ffffff !important;
+    }
+    
+    [data-testid="stSidebarCollapseButton"]::after {
+        content: ">>" !important;
+        font-size: 14px !important;
+        font-weight: bold !important;
         color: #ffffff !important;
     }
 
@@ -760,7 +776,7 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 AI 자동 완성형 카톡 제안서 & 에어제닉 인포그래픽 생성 센터 (내용 완전 동기화 & 500자 최적화)
+    # 📱 AI 자동 완성형 카톡 제안서 & 에어제닉 인포그래픽 생성 센터 (내용 완벽 동기화 & 500자 최적화)
     # ==========================================
     st.write("---")
     st.subheader("📋 CLC AI영업툴 - 맞춤형 제안서 및 에어제닉 인포그래픽 센터")
@@ -784,7 +800,6 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.warning("상호명과 업종을 입력해 주세요.")
             else:
                 with st.spinner("CLC AI영업툴이 고객 니즈 분석 및 제안서를 작성 중입니다..."):
-                    # RAG 데이터를 참조하여 고객 니즈(Pain Point)를 해소하는 맞춤형 제안서 생성 (약 400~500자)
                     ai_proposal_prompt = (
                         f"당신은 소상공인 B2C 영업 전문가 'CLC AI영업툴'입니다.\n"
                         f"'{auto_store}'({auto_ind}, 지역: {auto_loc}) 대표님에게 보낼 카카오톡 제안서를 작성해 주세요.\n"
