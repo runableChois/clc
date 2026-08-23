@@ -136,7 +136,7 @@ def search_kakao_local_stores(query_text):
 
     try:
         encoded_query = urllib.parse.quote(search_keyword)
-        url = f"[https://dapi.kakao.com/v2/local/search/keyword.json?query=](https://dapi.kakao.com/v2/local/search/keyword.json?query=){encoded_query}&size=15"
+        url = f"https://dapi.kakao.com/v2/local/search/keyword.json?query={encoded_query}&size=15"
         req = urllib.request.Request(url)
         req.add_header("Authorization", f"KakaoAK {kakao_key}")
         
@@ -147,7 +147,7 @@ def search_kakao_local_stores(query_text):
             if not documents and len(query_text.split()) > 0:
                 first_word = query_text.split()[0]
                 encoded_fb = urllib.parse.quote(first_word)
-                url_fb = f"[https://dapi.kakao.com/v2/local/search/keyword.json?query=](https://dapi.kakao.com/v2/local/search/keyword.json?query=){encoded_fb}&size=15"
+                url_fb = f"https://dapi.kakao.com/v2/local/search/keyword.json?query={encoded_fb}&size=15"
                 req_fb = urllib.request.Request(url_fb)
                 req_fb.add_header("Authorization", f"KakaoAK {kakao_key}")
                 with urllib.request.urlopen(req_fb) as res_fb_obj:
@@ -180,7 +180,7 @@ def generate_general_proposal_card(store_name, product_name, industry, summary_t
     FONT_PATH = "NanumGothic-Bold.ttf"
     if not os.path.exists(FONT_PATH):
         try:
-            urllib.request.urlretrieve("[https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf](https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf)", FONT_PATH)
+            urllib.request.urlretrieve("https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf", FONT_PATH)
         except:
             pass
 
@@ -231,7 +231,7 @@ def generate_general_proposal_card(store_name, product_name, industry, summary_t
     return buf.getvalue()
 
 # ==========================================
-# 4. [LOCK - CLC AI영업툴] 고도화된 페르소나 및 시스템 지침 (문법 오류 수정 완료)
+# 4. [LOCK - CLC AI영업툴] 고도화된 페르소나 및 시스템 지침
 # ==========================================
 CLC_AI_SALES_TOOL_INSTRUCTION = """
 당신은 현장 B2C 및 소상공인 영업 전문가인 'CLC AI영업툴'입니다. 
@@ -692,14 +692,14 @@ if "GEMINI_API_KEY" in st.secrets:
 
                 response_stream = chat.send_message_stream(send_contents)
                 
-                full_response = ""
+                response_chunks = []
                 def stream_generator():
-                    nonlocal full_response
                     for chunk in response_stream:
-                        full_response += chunk.text
+                        response_chunks.append(chunk.text)
                         yield chunk.text
 
                 streamed_text = st.write_stream(stream_generator())
+                full_response = "".join(response_chunks)
                 
                 # '제안서' 또는 '이미지'를 명시적으로 요청한 경우에만 동적 제안서 카드 생성 및 출력
                 is_proposal_img_request = any(k in user_prompt for k in ["제안서 이미지", "제안서 만들어", "제안서 생성", "이미지 만들어"])
