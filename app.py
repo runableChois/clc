@@ -15,7 +15,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # ==========================================
-# 1. 페이지 기본 설정 및 모바일 UI 최적화 CSS (웨일 브라우저 아이콘 깨짐 방지 적용)
+# 1. 페이지 기본 설정 및 모바일 UI 최적화 CSS
 # ==========================================
 st.set_page_config(
     page_title="CLC AI영업툴 (Pro)",
@@ -67,7 +67,7 @@ st.markdown("""
         z-index: 100 !important;
     }
     
-    /* 네이버 웨일 등 모바일 웹뷰에서 Material Icon 텍스트 깨짐 현상 완전 차단 및 깔끔한 메뉴 텍스트 대체 */
+    /* 모바일 및 웨일 브라우저 웹뷰 Material Icon 깨짐 방지 */
     [data-testid="collapsedControl"], [data-testid="stSidebarCollapseButton"] {
         color: transparent !important;
         background-color: #003b7a !important;
@@ -174,9 +174,13 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. [Dynamic Proposal Engine] 전 제품 맞춤형 고품격 제안서 이미지 생성 엔진
+# 3. [고도화된 스튜디오 디자인 제안서 렌더링 엔진]
 # ==========================================
 def generate_general_proposal_card(store_name, product_name, industry, summary_text, price_text):
+    """
+    고급 스튜디오 레이아웃, 정밀 비교표(구분/특징/성능/디자인/가격), 
+    3대 혜택(1:1 전담, 품질보장, 3일체험) 및 라임그린 고대비 CTA 배너를 렌더링합니다.
+    """
     FONT_PATH = "NanumGothic-Bold.ttf"
     if not os.path.exists(FONT_PATH):
         try:
@@ -184,47 +188,102 @@ def generate_general_proposal_card(store_name, product_name, industry, summary_t
         except:
             pass
 
-    width, height = 1200, 1600
-    img = Image.new('RGB', (width, height), color='#f8fafc')
+    width, height = 1200, 2000
+    img = Image.new('RGB', (width, height), color='#f4f5f8')
     draw = ImageDraw.Draw(img)
 
     try:
-        f_title = ImageFont.truetype(FONT_PATH, 42)
-        f_sub = ImageFont.truetype(FONT_PATH, 26)
-        f_box_t = ImageFont.truetype(FONT_PATH, 28)
-        f_box_b = ImageFont.truetype(FONT_PATH, 20)
-        f_price = ImageFont.truetype(FONT_PATH, 32)
-        f_foot = ImageFont.truetype(FONT_PATH, 18)
+        f_hero = ImageFont.truetype(FONT_PATH, 42)
+        f_title = ImageFont.truetype(FONT_PATH, 30)
+        f_sub = ImageFont.truetype(FONT_PATH, 24)
+        f_box_t = ImageFont.truetype(FONT_PATH, 24)
+        f_box_b = ImageFont.truetype(FONT_PATH, 19)
+        f_table_h = ImageFont.truetype(FONT_PATH, 21)
+        f_table_d = ImageFont.truetype(FONT_PATH, 18)
+        f_cta_h = ImageFont.truetype(FONT_PATH, 32)
+        f_foot = ImageFont.truetype(FONT_PATH, 17)
     except:
-        f_title = f_sub = f_box_t = f_box_b = f_price = f_foot = ImageFont.load_default()
+        f_hero = f_title = f_sub = f_box_t = f_box_b = f_table_h = f_table_d = f_cta_h = f_foot = ImageFont.load_default()
 
-    draw.rectangle([(0, 0), (width, 220)], fill='#003b7a')
-    draw.rectangle([(0, 210), (width, 220)], fill='#00a3e0')
-    draw.text((60, 40), "🦅 CESCO OFFICIAL PROPOSAL", fill='#38bdf8', font=ImageFont.truetype(FONT_PATH, 24))
-    draw.text((60, 90), f"'{store_name}' ({industry}) 맞춤형 제안서", fill='#ffffff', font=f_title)
-    draw.text((60, 155), f"추천 제품: {product_name}", fill='#cbd5e1', font=f_sub)
+    # 상단 헤더: Deep Blue & Lime Green 포인트
+    draw.rectangle([(0, 0), (width, 220)], fill='#001e3d')
+    draw.rectangle([(0, 210), (width, 220)], fill='#a3e635')
+    draw.text((60, 35), "🦅 CESCO OFFICIAL PROPOSAL", fill='#38bdf8', font=ImageFont.truetype(FONT_PATH, 20))
+    draw.text((60, 75), f"{product_name}: 공간 케어의 혁신을 제안합니다", fill='#ffffff', font=f_hero)
+    draw.text((60, 145), f"제안 대상: {store_name} ({industry}) | 업계 최고 성능 맞춤 케어", fill='#cbd5e1', font=f_sub)
 
-    draw.rounded_rectangle([(60, 260), (1140, 520)], radius=15, fill='#ffffff', outline='#cbd5e1', width=2)
-    draw.text((100, 300), "📌 현장 진단 및 핵심 가치 요약", fill='#003b7a', font=f_box_t)
-    sum_lines = [summary_text[i:i+45] for i in range(0, len(summary_text), 45)]
-    sy = 360
-    for line in sum_lines[:4]:
-        draw.text((100, sy), line, fill='#334155', font=f_box_b)
-        sy += 32
+    # 1. 상단 현장 진단 요약
+    draw.rounded_rectangle([(60, 250), (1140, 480)], radius=16, fill='#ffffff', outline='#cbd5e1', width=2)
+    draw.text((90, 280), "📌 사업장 정밀 진단 및 도입 핵심 가치", fill='#001e3d', font=f_box_t)
+    sum_lines = [summary_text[i:i+46] for i in range(0, len(summary_text), 46)]
+    sy = 330
+    for line in sum_lines[:3]:
+        draw.text((90, sy), f"• {line}", fill='#334155', font=f_box_b)
+        sy += 34
 
-    draw.rounded_rectangle([(60, 560), (1140, 920)], radius=15, fill='#eff6ff', outline='#bfdbfe', width=2)
-    draw.text((100, 600), f"✨ 제안 제품: {product_name}", fill='#0284c7', font=f_box_t)
-    draw.text((100, 660), "• 세스코 전문 케어 요원의 정기적인 관리 서비스", fill='#1e293b', font=f_box_b)
-    draw.text((100, 705), "• 100% 본사 지원 3일 무상 체험 서비스 제공", fill='#1e293b', font=f_box_b)
-    draw.text((100, 775), f"💰 제안 견적 / 단가: {price_text}", fill='#003b7a', font=f_price)
+    # 2. 정밀 비교 매트릭스 테이블 (5개 행 비교)
+    draw.text((60, 515), "📊 솔루션 경쟁력 및 도입 스펙 비교표", fill='#0f172a', font=f_title)
+    
+    t_x, t_y, t_w, t_h = 60, 560, 1080, 520
+    draw.rounded_rectangle([(t_x, t_y), (t_x + t_w, t_y + t_h)], radius=14, fill='#ffffff', outline='#94a3b8', width=2)
+    
+    # 테이블 헤더
+    draw.rectangle([(t_x, t_y), (t_x + t_w, t_y + 60)], fill='#0f172a')
+    draw.text((t_x + 25, t_y + 18), "구분", fill='#ffffff', font=f_table_h)
+    draw.text((t_x + 200, t_y + 18), f"세스코 {product_name} (추천)", fill='#a3e635', font=f_table_h)
+    draw.text((t_x + 600, t_y + 18), "경쟁사 A (기존 일반 관리)", fill='#cbd5e1', font=f_table_h)
+    draw.text((t_x + 870, t_y + 18), "경쟁사 B (단순 렌탈)", fill='#cbd5e1', font=f_table_h)
 
-    draw.rounded_rectangle([(60, 960), (1140, 1260)], radius=15, fill='#0f172a', outline='#38bdf8', width=2)
-    draw.text((100, 1010), "🎁 특별 프로모션 혜택", fill='#38bdf8', font=f_box_t)
-    draw.text((100, 1070), "• 설치비 전액 면제 및 3일 무료 체험 후 결정", fill='#ffffff', font=f_box_b)
-    draw.text((100, 1115), "• “깨끗하고 안전한 공간은 고객의 발걸음을 머물게 합니다.”", fill='#94a3b8', font=f_box_b)
+    rows = [
+        ("주요 특징", "올인원 맞춤 정밀 살균·탈취 케어", "단순 표면 세정 및 악취 은폐", "일반 정기 소모품 교체"),
+        ("성능 지표", "유해 세균·바이러스 99.9% 차단", "환기 부족 시 잔류 오염 누적", "기본 규격 필터링 수준"),
+        ("디자인", "슬림 프리미엄 메탈 & 스마트 센서", "공간 차지 및 노후 외관", "투박한 플라스틱 바디"),
+        ("사후 관리", "SOL 플래너 1:1 전담 정기 점검", "점주 자가 관리 부담/누락", "기계적 단순 방문"),
+        ("가격 경쟁력", price_text + " (3일 무료체험)", "소모품 비용 지속 지출", "의무 약정 및 설치비 부과")
+    ]
+    
+    row_y = t_y + 60
+    for idx, (c1, c2, c3, c4) in enumerate(rows):
+        bg_col = '#f8fafc' if idx % 2 == 0 else '#ffffff'
+        draw.rectangle([(t_x, row_y), (t_x + t_w, row_y + 92)], fill=bg_col)
+        draw.line([(t_x, row_y), (t_x + t_w, row_y)], fill='#e2e8f0', width=1)
+        
+        draw.text((t_x + 25, row_y + 32), c1, fill='#0f172a', font=f_table_d)
+        draw.text((t_x + 200, row_y + 32), c2, fill='#002855', font=f_table_d)
+        draw.text((t_x + 600, row_y + 32), c3, fill='#64748b', font=f_table_d)
+        draw.text((t_x + 870, row_y + 32), c4, fill='#64748b', font=f_table_d)
+        row_y += 92
 
-    draw.rectangle([(0, height - 90), (width, height)], fill='#020617')
-    draw.text((60, height - 55), "CESCO 경기서북부 담당 플래너 | www.cesco.co.kr | Innovation for Tomorrow", fill='#94a3b8', font=f_foot)
+    # 3. Special Benefits 3종 섹션
+    draw.text((60, 1115), "🎁 세스코만의 특별 혜택 프로그램 (Special Benefits)", fill='#0f172a', font=f_title)
+    
+    b_w, b_h = 345, 230
+    benefits = [
+        ("👤 1:1 전담 지원", "전문 SOL 플래너의\n사업장 맞춤형 사후관리\n및 정기 위생 점검 지원"),
+        ("🛡️ 품질 보장 프로그램", "99.9% 유해균 차단 및\n네이버 지도 위생 안심\n매장 인증 마크 획득"),
+        ("🎁 3일 무상 체험", "설치비 100% 본사 지원\n3일간 체험 후 결정\n불만족 시 0원 회수")
+    ]
+    
+    for idx, (b_t, b_d) in enumerate(benefits):
+        bx = 60 + idx * (b_w + 22)
+        draw.rounded_rectangle([(bx, 1160), (bx + b_w, 1160 + b_h)], radius=14, fill='#0b1329', outline='#0284c7', width=2)
+        draw.text((bx + 20, 1185), b_t, fill='#a3e635', font=f_box_t)
+        
+        by_text = 1230
+        for line in b_d.split('\n'):
+            draw.text((bx + 20, by_text), line, fill='#e2e8f0', font=f_box_b)
+            by_text += 28
+
+    # 4. 하단 콜투액션(CTA) 패널 (라임그린 고대비 배너)
+    cta_y = 1430
+    draw.rounded_rectangle([(60, cta_y), (1140, cta_y + 190)], radius=18, fill='#a3e635', outline='#001e3d', width=3)
+    draw.text((95, cta_y + 35), "➔ 지금 바로 상담하고 3일 무료체험 독점 혜택을 받으세요!", fill='#001e3d', font=f_cta_h)
+    draw.text((95, cta_y + 90), "“깨끗하고 안전한 공간은 고객의 발걸음을 머물게 합니다.”", fill='#0f172a', font=f_title)
+    draw.text((95, cta_y + 135), f"담당 플래너 직통 문의 | 세스코 경기서북부 전담 센터 | www.cesco.co.kr", fill='#334155', font=f_box_b)
+
+    # 푸터
+    draw.rectangle([(0, height - 70), (width, height)], fill='#020617')
+    draw.text((60, height - 45), "Innovation for Clean & Safe Living Care • CESCO Official Partner", fill='#64748b', font=f_foot)
 
     buf = io.BytesIO()
     img.save(buf, format='PNG')
@@ -249,7 +308,7 @@ CLC_AI_SALES_TOOL_INSTRUCTION = """
 
 [제안서 작성 요청 시 필수 규칙]
 플래너가 '[어느] 업체에 [제품종류] 제안서를 만들어줘'라고 요청하면, 
-1. 카카오톡 전송용 텍스트 제안서(400~500자 내외, 고객 니즈 분석 및 솔루션 포함)를 작성합니다.
+1. 카카오톡 전송용 텍스트 제안서(400~500자 내외, 고객 니즈 분석 및 솔루션 포함)를 마크다운 형식으로 작성합니다.
 2. 이미지를 만들어달라고 명시적으로 요청한 경우에만 제안서 이미지가 함께 출력됩니다.
 """
 
@@ -538,14 +597,14 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# 7. 메인 화면 & 챗봇 인터페이스
+# 7. 메인 화면 & 챗봇 인터페이스 (Gemini 3 Pro Preview 플래그십 탑재)
 # ==========================================
 st.title("💼 CLC AI영업툴 (Pro)")
 
 if learned_files_list:
-    st.caption(f"📌 **참조 학습 문서:** `{len(learned_files_list)}건 통합` | 소상공인·가정 B2C 영업 전문가 비서")
+    st.caption(f"📌 **참조 학습 문서:** `{len(learned_files_list)}건 통합` | 소상공인·가정 B2C 영업 전문가 비서 (Gemini 3 Pro)")
 else:
-    st.caption("📌 **소상공인·가정 B2C 영업 전문가 비서 시스템**")
+    st.caption("📌 **소상공인·가정 B2C 영업 전문가 비서 시스템 (Gemini 3 Pro)**")
 
 st.divider()
 
@@ -612,7 +671,7 @@ if "GEMINI_API_KEY" in st.secrets:
         if uploaded_img:
             st.image(uploaded_img, caption="첨부된 현장 사진 진단 준비 완료", width=250)
 
-    prompt_input = st.chat_input("상권 및 영업 전략을 입력하세요... (예: 정수기 더슬림으로 제안서 이미지를 만들어줘)")
+    prompt_input = st.chat_input("상권 및 영업 전략을 입력하세요... (예: 대박식당에 정수기 더슬림으로 제안서 이미지를 만들어줘)")
     
     user_prompt = None
     if quick_rejection_prompt:
@@ -674,8 +733,9 @@ if "GEMINI_API_KEY" in st.secrets:
 
         with st.chat_message("assistant"):
             try:
+                # Gemini 3 Pro Preview 엔진
                 chat = client.chats.create(
-                    model="gemini-3-flash-preview", 
+                    model="gemini-3-pro-preview", 
                     config=types.GenerateContentConfig(
                         system_instruction=final_system_instruction
                     ),
@@ -701,10 +761,10 @@ if "GEMINI_API_KEY" in st.secrets:
                 streamed_text = st.write_stream(stream_generator())
                 full_response = "".join(response_chunks)
                 
-                # '제안서' 또는 '이미지'를 명시적으로 요청한 경우에만 동적 제안서 카드 생성 및 출력
-                is_proposal_img_request = any(k in user_prompt for k in ["제안서 이미지", "제안서 만들어", "제안서 생성", "이미지 만들어"])
+                # '제안서' 또는 '이미지'를 명시적으로 요청한 경우에만 스튜디오 제안서 카드 동적 생성 및 출력
+                is_proposal_img_request = any(k in user_prompt for k in ["제안서 이미지", "제안서 만들어", "제안서 생성", "이미지 만들어", "이미지 생성"])
                 if is_proposal_img_request:
-                    with st.spinner("요청하신 제품 및 업종 맞춤형 제안서 이미지를 렌더링 중입니다..."):
+                    with st.spinner("Gemini 3 Pro가 제품 스펙과 단가를 분석하여 스튜디오 제안서 카드를 렌더링 중입니다..."):
                         p_name = "세스코 맞춤 제안 제품"
                         s_name = "고객사"
                         ind_name = "일반 업종"
@@ -718,7 +778,7 @@ if "GEMINI_API_KEY" in st.secrets:
                         
                         if knowledge_context:
                             try:
-                                ex_p = client.chats.create(model="gemini-3-flash-preview").send_message(f"아래 문서에서 '{p_name}'의 가격이나 주요 스펙을 한 줄로 요약해줘: {knowledge_context[:3000]}").text
+                                ex_p = client.chats.create(model="gemini-3-pro-preview").send_message(f"아래 문서에서 '{p_name}'의 가격이나 주요 스펙을 한 줄로 요약해줘: {knowledge_context[:3000]}").text
                                 if len(ex_p) > 2:
                                     pr_text = ex_p[:40]
                             except:
@@ -731,7 +791,7 @@ if "GEMINI_API_KEY" in st.secrets:
                             summary_text=sum_txt,
                             price_text=pr_text
                         )
-                        st.image(img_bytes, caption=f"맞춤형 제안서 이미지 ({p_name})", use_container_width=True)
+                        st.image(img_bytes, caption=f"스튜디오 품질 제안서 카드 ({p_name})", use_container_width=True)
                         st.download_button(
                             label="📥 제안서 이미지 다운로드 (.png)",
                             data=img_bytes,
@@ -745,13 +805,13 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 📱 탭 기반 제안서 생성 센터 (카톡 텍스트 & 전 제품 인포그래픽)
+    # 📱 탭 기반 제안서 생성 센터 (카톡 마크다운 복사 & 스튜디오 인포그래픽 카드)
     # ==========================================
     st.write("---")
     st.subheader("📋 CLC AI영업툴 - 맞춤형 제안서 및 인포그래픽 센터")
-    st.caption("고객 니즈 분석과 RAG 학습 단가표가 동기화된 500자 최적화 카톡 제안서와 인포그래픽을 생성합니다.")
+    st.caption("고객 니즈 분석과 RAG 학습 단가표가 동기화된 500자 최적화 카톡 마크다운 제안서와 인포그래픽을 생성합니다.")
     
-    proposal_tab1, proposal_tab2 = st.tabs(["📱 카톡 맞춤형 제안서 (500자 최적화)", "🌿 맞춤형 인포그래픽 제안서 카드"])
+    proposal_tab1, proposal_tab2 = st.tabs(["📱 카톡 맞춤형 제안서 (마크다운 복사)", "🌿 맞춤형 인포그래픽 제안서 카드"])
     
     with proposal_tab1:
         with st.form("auto_kakao_form"):
@@ -768,7 +828,7 @@ if "GEMINI_API_KEY" in st.secrets:
             if not auto_store or not auto_ind:
                 st.warning("상호명과 업종을 입력해 주세요.")
             else:
-                with st.spinner("CLC AI영업툴이 고객 니즈 분석 및 제안서를 작성 중입니다..."):
+                with st.spinner("CLC AI영업툴(Gemini 3 Pro)이 고객 니즈 분석 및 제안서를 작성 중입니다..."):
                     ai_proposal_prompt = (
                         f"당신은 소상공인 B2C 영업 전문가 'CLC AI영업툴'입니다.\n"
                         f"'{auto_store}'({auto_ind}, 지역: {auto_loc}) 대표님에게 보낼 카카오톡 제안서를 작성해 주세요.\n"
@@ -779,7 +839,7 @@ if "GEMINI_API_KEY" in st.secrets:
                         f"참고할 학습 단가/제품 데이터 요약: {knowledge_context[:1500]}"
                     )
                     try:
-                        chat_kakao = client.chats.create(model="gemini-3-flash-preview")
+                        chat_kakao = client.chats.create(model="gemini-3-pro-preview")
                         res_k = chat_kakao.send_message(ai_proposal_prompt)
                         kakao_formatted_text = res_k.text
                     except:
@@ -799,12 +859,12 @@ if "GEMINI_API_KEY" in st.secrets:
 
 지금 바로 쾌적한 매장 환경을 경험해 보세요! ✨"""
 
-                st.success("✅ 고객 니즈 맞춤형 카톡 제안서가 완성되었습니다!")
+                st.success("✅ 카톡 제안서가 완성되었습니다! 우측 상단 복사 버튼을 눌러 바로 활용하세요.")
                 st.code(kakao_formatted_text, language="markdown")
 
     with proposal_tab2:
-        st.write("🌿 **세스코 맞춤형 공식 인포그래픽 프로포절**")
-        st.caption("원하시는 업체명, 업종, 제품명을 입력하시면 RAG 단가표와 연동된 고품격 인포그래픽 카드가 생성됩니다.")
+        st.write("🌿 **세스코 맞춤형 스튜디오 공식 인포그래픽 프로포절**")
+        st.caption("원하시는 업체명, 업종, 제품명을 입력하시면 RAG 단가표와 비교 매트릭스가 연동된 고품격 인포그래픽 카드가 생성됩니다.")
         
         with st.form("custom_infographic_form"):
             ci_store = st.text_input("업체명 / 매장명", placeholder="예: 대박식당")
@@ -818,7 +878,7 @@ if "GEMINI_API_KEY" in st.secrets:
             if not ci_store or not ci_prod:
                 st.warning("업체명과 제안 제품명은 필수 입력 항목입니다.")
             else:
-                with st.spinner("학습 단가표를 반영하여 맞춤형 인포그래픽 제안서를 렌더링 중입니다..."):
+                with st.spinner("Gemini 3 Pro가 학습 단가표를 반영하여 스튜디오 제안서 카드를 렌더링 중입니다..."):
                     img_bytes = generate_general_proposal_card(
                         store_name=ci_store,
                         product_name=ci_prod,
@@ -826,7 +886,7 @@ if "GEMINI_API_KEY" in st.secrets:
                         summary_text=f"{ci_store} 대표님 사업장의 위생 환경 개선 및 고객 신뢰도 향상을 위한 맞춤형 케어 솔루션",
                         price_text=ci_price if ci_price else "학습 단가표 기준 적용"
                     )
-                    st.image(img_bytes, caption=f"맞춤형 제안서 이미지 ({ci_prod})", use_container_width=True)
+                    st.image(img_bytes, caption=f"스튜디오 품질 제안서 카드 ({ci_prod})", use_container_width=True)
                     st.download_button(
                         label="📥 제안서 이미지 다운로드 (.png)",
                         data=img_bytes,
