@@ -171,196 +171,98 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. [AI Powered] Imagen 3 마케팅 전단지 생성 파이프라인
+# 3. [Imagen 3 전용] 2단계 실사 마케팅 전단지 생성 파이프라인
 # ==========================================
 def generate_imagen3_marketing_poster(client_genai, target_info, product_name, custom_notes, rag_context):
     """
-    1. Gemini 2.5 Pro가 고객 상황(가정/사업장)과 제품을 분석하여 전문 카피와 Imagen 3 전용 고도화 프롬프트 작성
-    2. Imagen 3 (imagen-3.0-generate-002) 호출하여 실사 포스터 이미지 생성
+    1단계: Gemini 2.5 Pro가 고객 상황(가정집/매장) 및 RAG 단가표를 정밀 분석하여
+           '강조 포인트 알아서 추천' 등의 입력을 전문적인 상업 카피와 초고화질 영문 프롬프트로 변환
+    2단계: Google Imagen 3 (imagen-3.0-generate-002)를 호출하여 3:4 비율의 실사 포스터 이미지 생성
     """
-    # 1단계: Gemini 전문가 분석 및 영문 광고 프롬프트 빌드
     prompt_builder_request = f"""
-    You are a master creative director for premium living care and hygiene advertising.
-    Analyze the following request and create a prompt for Google Imagen 3.
+    You are an expert commercial advertising director for CESCO's premium living care systems.
+    Convert the following sales request into:
+    1) A crisp, persuasive Korean summary copy (Headline, 3 key bullet points).
+    2) An ultra-detailed photorealistic English image generation prompt for Google Imagen 3.
 
-    [Input Data]
-    - Target Audience: {target_info} (Analyze whether this is a modern family home/apartment or a commercial business)
+    [Input Request]
+    - Target: {target_info} (Identify clearly if this is a Korean modern home/apartment or a commercial business)
     - Products: {product_name}
-    - Custom Request/Notes: {custom_notes}
-    - RAG Pricing/Spec Context: {rag_context[:1500]}
+    - Specific Request/Notes: {custom_notes}
+    - Reference RAG Spec/Pricing: {rag_context[:2000]}
 
-    [Poster Concept & Visual Requirements]
+    [Visual Design Guidelines for Imagen 3 Prompt]
     - Format: Commercial promotional flyer poster, vertical 3:4 aspect ratio.
-    - Top Section (60%): High-end, photorealistic commercial studio photography.
-      * If Home: A stunning, sunlit modern minimalist Korean apartment interior (kitchen/living room/bathroom) featuring the sleek premium appliances operating seamlessly with pure water/crystal-clean air/sanitizing mist aesthetics.
-      * If Store/Business: A pristine, hygienic, upscale store/restaurant interior with glowing clean ambiance.
-      * Shot on 35mm lens, cinematic studio rim lighting, 8k resolution, Architectural Digest commercial style.
-    - Bottom Section (40%): Matte dark charcoal (#0f172a) graphic layout with vibrant neon lime green (#A3E635) and crisp white typography.
-      * Minimalist vector badges: 1:1 Expert Care, 99.9% Full Protection, Special Promotion.
-      * High contrast action bar at bottom with bold arrow symbol.
-    - No distorted artifacts, highly legible graphic layout, luxurious branding aesthetic.
+    - Top Section (60%): Cinematic studio advertising photography.
+      * If Home: A sunlit, ultra-modern luxury minimalist Korean apartment (living room/kitchen/bathroom) with sleek, pristine appliances in action (e.g. pure sparkling water stream from direct water purifier, subtle clean air glow from air purifier, clean modern bathroom bidet). Warm, healthy, family-safe atmosphere.
+      * If Store: A clean, hygienic, premium restaurant or shop with pristine ambiance.
+      * Shot on 35mm lens, f/2.8, soft commercial studio rim lighting, 8k resolution, Architectural Digest style.
+    - Bottom Section (40%): Matte dark charcoal navy (#0b1329) background with vibrant neon lime green (#A3E635) and crisp white typography.
+      * Three neat minimalist feature badges with vector icons.
+      * High-contrast neon action banner with a bold arrow at the bottom.
+    - Clean composition, bold typography aesthetic, luxury brand quality.
 
-    Output ONLY the final English prompt for Imagen 3 without any markdown quotes or intro.
+    [Output Format JSON ONLY]
+    {{
+        "headline": "핵심 헤드라인 문구",
+        "bullet1": "첫번째 핵심 소구점 (스펙/효과)",
+        "bullet2": "두번째 핵심 소구점 (위생/살균)",
+        "bullet3": "세번째 핵심 소구점 (혜택/관리)",
+        "imagen_prompt": "Ultra detailed English prompt for Imagen 3"
+    }}
     """
-    
     try:
-        res_prompt = client_genai.models.generate_content(
+        res_copy = client_genai.models.generate_content(
             model="gemini-2.5-pro",
-            contents=prompt_builder_request
+            contents=prompt_builder_request,
+            config=types.GenerateContentConfig(response_mime_type="application/json")
         )
-        final_imagen_prompt = res_prompt.text.strip()
-        
-        # 2단계: Imagen 3 생성 호출
+        parsed_data = json.loads(res_copy.text)
+        final_prompt = parsed_data.get("imagen_prompt", "")
+
+        # Imagen 3 호출
         result = client_genai.models.generate_images(
             model='imagen-3.0-generate-002',
-            prompt=final_imagen_prompt,
+            prompt=final_prompt,
             config=types.GenerateImagesConfig(
                 number_of_images=1,
                 output_mime_type="image/jpeg",
-                aspect_ratio="3:4",
-                person_generation="ALLOW_ADULT"
+                aspect_ratio="3:4"
             )
         )
         for gen_img in result.generated_images:
-            return gen_img.image.image_bytes, None
+            return gen_img.image.image_bytes, parsed_data, None
     except Exception as e:
-        return None, str(e)
+        return None, None, str(e)
 
 # ==========================================
-# 4. [Airzenic Pro] 세스코 에어제닉 전용 인포그래픽 렌더링
-# ==========================================
-def generate_airzenic_infographic_card(rag_data=None):
-    FONT_PATH = "NanumGothic-Bold.ttf"
-    if not os.path.exists(FONT_PATH):
-        try:
-            urllib.request.urlretrieve("https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Bold.ttf", FONT_PATH)
-        except Exception:
-            pass
-
-    prem_price = rag_data.get("prem_price", "250,000원") if rag_data else "250,000원"
-    std_price = rag_data.get("std_price", "190,000원") if rag_data else "190,000원"
-
-    width, height = 1200, 2150
-    img = Image.new('RGB', (width, height), color='#f8fafc')
-    draw = ImageDraw.Draw(img)
-
-    try:
-        f_header_t = ImageFont.truetype(FONT_PATH, 38)
-        f_header_s = ImageFont.truetype(FONT_PATH, 24)
-        f_section_t = ImageFont.truetype(FONT_PATH, 28)
-        f_card_t = ImageFont.truetype(FONT_PATH, 22)
-        f_card_d = ImageFont.truetype(FONT_PATH, 17)
-        f_price = ImageFont.truetype(FONT_PATH, 26)
-        f_footer = ImageFont.truetype(FONT_PATH, 18)
-    except Exception:
-        f_header_t = f_header_s = f_section_t = f_card_t = f_card_d = f_price = f_footer = ImageFont.load_default()
-
-    draw.rectangle([(0, 0), (width, 180)], fill='#003b7a')
-    draw.rectangle([(0, 170), (width, 180)], fill='#00a3e0')
-    draw.text((60, 35), "🦅 CESCO AIRZENIC PROPOSAL", fill='#38bdf8', font=ImageFont.truetype(FONT_PATH, 22))
-    draw.text((60, 70), "악취는 없애고 순간의 향기로 공간을 채우는, 세스코 에어제닉!", fill='#ffffff', font=f_header_t)
-    draw.text((60, 125), "우리 집 / 사업장 공간 공기, 지금 어떤가요?", fill='#cbd5e1', font=f_header_s)
-
-    draw.text((60, 215), "🚨 이런 공간의 고민, 세스코가 해결합니다", fill='#0f172a', font=f_section_t)
-    problems = [
-        ("화장실의 끈질긴 암모니아 냄새", "배수구와 변기에서 발생하는 불쾌한 냄새가 상쾌함을 해칩니다."),
-        ("반려동물의 배변 냄새 및 체취", "반려동물과 함께하는 공간에 배인 냄새와 체취가 고민입니다."),
-        ("쓰레기통 주변의 부패한 악취", "생활 쓰레기에서 나오는 부패한 냄새가 공기를 무겁게 만듭니다."),
-        ("담배 냄새 잔류", "환풍기를 틀어도 사라지지 않는 담배 냄새가 실내에 배어 있습니다."),
-        ("밀폐된 공간의 답답하고 칙칙한 공기", "환기가 어려운 방이나 사무실의 공기가 답답합니다."),
-        ("방향제 스프레이의 인위적인 잔향", "뿌릴 때만 잠시 가려질 뿐, 인위적인 향이 남아 불쾌합니다.")
-    ]
-    p_w, p_h = 525, 125
-    p_start_y = 265
-    for idx, (p_title, p_desc) in enumerate(problems):
-        col = idx % 2
-        row = idx // 2
-        px = 60 if col == 0 else 615
-        py = p_start_y + row * (p_h + 15)
-        draw.rounded_rectangle([(px, py), (px + p_w, py + p_h)], radius=12, fill='#ffffff', outline='#cbd5e1', width=2)
-        draw.text((px + 20, py + 18), f"• {p_title}", fill='#003b7a', font=f_card_t)
-        desc_lines = [p_desc[i:i+30] for i in range(0, len(p_desc), 30)]
-        dy = py + 52
-        for line in desc_lines:
-            draw.text((px + 20, dy), line, fill='#475569', font=f_card_d)
-            dy += 22
-
-    s_start_y = 735
-    draw.text((60, s_start_y), "✨ CESCO Airzenic 4-Step Solution", fill='#0f172a', font=f_section_t)
-    solutions = [
-        ("POINT 01", "지능형 센서 감지", "사람의 움직임을 실시간으로 감지하여 자동으로 탈취/발향합니다."),
-        ("POINT 02", "순간 발향 및 강력 탈취", "즉각 미세 탈취제와 향기를 분사하여 불쾌한 냄새를 제거합니다."),
-        ("POINT 03", "프리미엄 향기 포트폴리오", "전문 조향사가 설계한 다양한 프리미엄 향기 중 맞춤 선택 가능합니다."),
-        ("POINT 04", "간편한 설치 및 리필 교체", "벽걸이/스탠드형으로 어디든 설치 가능하며 리필 교체가 쉽습니다.")
-    ]
-    s_y = s_start_y + 50
-    for step, s_name, s_desc in solutions:
-        draw.rounded_rectangle([(60, s_y), (1140, s_y + 85)], radius=12, fill='#eff6ff', outline='#bfdbfe', width=2)
-        draw.text((85, s_y + 18), step, fill='#0284c7', font=ImageFont.truetype(FONT_PATH, 16))
-        draw.text((85, s_y + 42), s_name, fill='#0f172a', font=f_card_t)
-        draw.text((360, s_y + 32), s_desc, fill='#334155', font=f_card_d)
-        s_y += 100
-
-    c_start_y = 1195
-    draw.text((60, c_start_y), "📦 맞춤형 서비스 모델 및 단가", fill='#0f172a', font=f_section_t)
-    box_w, box_h = 525, 185
-    draw.rounded_rectangle([(60, c_start_y + 50), (60 + box_w, c_start_y + 50 + box_h)], radius=15, fill='#ffffff', outline='#003b7a', width=3)
-    draw.text((90, c_start_y + 72), "👑 에어제닉 프리미엄형", fill='#003b7a', font=f_card_t)
-    draw.text((90, c_start_y + 110), "스마트 모션 센서 및 자동 발향", fill='#475569', font=f_card_d)
-    draw.text((90, c_start_y + 152), prem_price, fill='#0284c7', font=f_price)
-
-    draw.rounded_rectangle([(615, c_start_y + 50), (615 + box_w, c_start_y + 50 + box_h)], radius=15, fill='#ffffff', outline='#cbd5e1', width=2)
-    draw.text((645, c_start_y + 72), "📦 에어제닉 스탠다드형", fill='#0f172a', font=f_card_t)
-    draw.text((645, c_start_y + 110), "고정 타이머 발향 기본형", fill='#475569', font=f_card_d)
-    draw.text((645, c_start_y + 152), std_price, fill='#334155', font=f_price)
-
-    ui_y = 1460
-    draw.rounded_rectangle([(60, ui_y), (1140, ui_y + 130)], radius=15, fill='#0f172a', outline='#38bdf8', width=2)
-    draw.ellipse([(95, ui_y + 25), (175, ui_y + 105)], fill='#38bdf8')
-    draw.text((115, ui_y + 52), "황태", fill='#0f172a', font=ImageFont.truetype(FONT_PATH, 22))
-    draw.text((195, ui_y + 32), "황태 팀장", fill='#ffffff', font=f_card_t)
-    draw.text((195, ui_y + 72), "14시간 전 • 프로필 업데이트", fill='#94a3b8', font=f_footer)
-
-    cta_y = 1640
-    draw.rounded_rectangle([(60, cta_y), (1140, cta_y + 150)], radius=15, fill='#003b7a', outline='#38bdf8', width=3)
-    draw.text((95, cta_y + 35), "📞 지금 바로 세스코 맞춤형 케어 상담을 신청하세요!", fill='#ffffff', font=f_card_t)
-    draw.text((95, cta_y + 80), "“깨끗하고 안전한 공간은 고객의 발걸음을 머물게 합니다.”", fill='#38bdf8', font=f_header_s)
-
-    draw.rectangle([(0, height - 80), (width, height)], fill='#020617')
-    draw.text((60, height - 50), "CESCO 경기서북부 담당 플래너 | www.cesco.co.kr", fill='#94a3b8', font=f_footer)
-
-    buf = io.BytesIO()
-    img.save(buf, format='PNG')
-    return buf.getvalue()
-
-# ==========================================
-# 5. [LOCK - CLC AI영업툴] 고도화된 페르소나 및 시스템 지침
+# 4. [LOCK - CLC AI영업툴] 고도화된 페르소나 및 시스템 지침
 # ==========================================
 CLC_AI_SALES_TOOL_INSTRUCTION = """
 당신은 현장 B2C(가정) 및 소상공인(사업장) 영업 전문가인 'CLC AI영업툴'입니다.
 주로 소상공인 대표 혹은 가정의 가장 및 결정권자를 상대로 단기 성과 구축과 계약 및 매출 증대를 이끌어내는 것이 주된 목표입니다.
 
 [소통 및 답변 원칙]
-1. 가정집 고객에게는 '사업장/매장' 등의 단어를 쓰지 말고, '가정/우리 집/가족' 관점으로 제안하세요.
-2. 친절하면서도 전문적이고, 어려운 기술 용어보다는 쉬운 일상적 비유를 사용하여 소통합니다.
-3. 자료 요청(제안서, 스크립트 등) 시, **항상 핵심 가치를 먼저 두괄식으로 제시**합니다.
-4. **예상되는 고객의 거절/질문과 그에 대한 명확한 답변**을 반드시 포함해 주세요.
-5. 답변 길이는 핵심만 간결하게 요약하며, 복잡한 내용은 표나 불렛 포인트로 정리합니다.
-6. 절대 고객을 가르치려 들거나 강압적인 어투를 사용하지 않습니다.
+1. 가정집 고객에게는 '사업장/매장' 등의 단어를 절대 쓰지 말고, '가정/우리 집/가족' 관점으로 제안하세요.
+2. 3일 무료체험이 해당하지 않거나 언급되지 않은 제품에는 '3일 체험'을 억지로 넣지 마세요.
+3. 친절하면서도 전문적이고, 어려운 기술 용어보다는 쉬운 일상적 비유를 사용하여 소통합니다.
+4. 자료 요청(제안서, 스크립트 등) 시, **항상 핵심 가치를 먼저 두괄식으로 제시**합니다.
+5. **예상되는 고객의 거절/질문과 그에 대한 명확한 답변**을 반드시 포함해 주세요.
+6. 답변 길이는 핵심만 간결하게 요약하며, 복잡한 내용은 표나 불렛 포인트로 정리합니다.
 
 [세스코 핵심 8대 제품 라인업]
 1. 공기청정기: '판테온' (360도 필터, CA인증, CO2/PM1.0 센서)
 2. 공기살균기: '센스미' (UV-C 파워 램프, 부유 바이러스·세균 99.9% 제거)
 3. 탱크형 정수기: '더슬림', '더블', '더맥스' (업소용 대용량)
 4. 직수 정수기: '살균온', '살균온 얼음정수기' (UVnano 코크 살균)
-5. 비데: '파워방수비데', '살균방수비데', '올인원비데' (IPX6 방수)
+5. 비데: '파워방수비데', '살균방수비데', '올인원비데' (IPX6 방수, 전해수 노즐 살균)
 6. 향기 제품: '에어퍼퓸200', '에어제닉' (자동 향기 분사 및 악취 분해)
 7. 화장실 케어 제품: '프레쉬제닉', '핸드제닉', '새니제닉'
 8. 날벌레 방지 제품: '에어커튼', '포충등'
 """
 
 # ==========================================
-# 6. 데이터 I/O 및 RAG 누적 학습
+# 5. 데이터 I/O 및 RAG 누적 학습 함수
 # ==========================================
 KNOWLEDGE_BASE_PATH = "cesco_knowledge_base.txt"
 KNOWLEDGE_FILES_PATH = "cesco_knowledge_files_list.txt"
@@ -476,12 +378,12 @@ def save_equipment_inventory(df):
     df.to_csv(EQUIPMENT_LOG_PATH, index=False, encoding="utf-8-sig")
 
 # ==========================================
-# 7. 사이드바 UI
+# 6. 사이드바 UI (관리자 패널 & RAG & 3일 체험 스케줄 대시보드)
 # ==========================================
 with st.sidebar:
     st.header("⚙️ CLC AI영업툴 센터")
-    st.success("💼 **CLC AI영업툴 (Gemini 2.5 Pro + Imagen 3)**")
-    st.caption("가정 B2C 및 소상공인 영업 성공을 위한 전문 시스템")
+    st.success("💼 **CLC AI영업툴 가동 중**")
+    st.caption("가정 B2C 및 소상공인 영업 지원 (Gemini 2.5 Pro + Imagen 3)")
 
     st.divider()
     st.subheader("📚 현재 AI 학습 문서 상태")
@@ -504,7 +406,45 @@ with st.sidebar:
             st.write("📈 **실시간 영업 성과 & 3일 체험 전환 대시보드**")
             if os.path.exists(SALES_LOG_PATH):
                 logs_df = pd.read_csv(SALES_LOG_PATH)
+                if "담당팀원" in logs_df.columns and "담당플래너" not in logs_df.columns:
+                    logs_df.rename(columns={"담당팀원": "담당플래너"}, inplace=True)
+                if "설치장비품목" not in logs_df.columns:
+                    logs_df["설치장비품목"] = "-"
+                
+                inv_df = load_equipment_inventory()
+                installed_counts = logs_df[logs_df["체험장비설치"] == "설치 완료"]["담당플래너"].value_counts().reset_index()
+                installed_counts.columns = ["담당플래너", "설치대수"]
+                
+                merged_inv = pd.merge(inv_df, installed_counts, on="담당플래너", how="left").fillna(0)
+                merged_inv["설치대수"] = merged_inv["설치대수"].astype(int)
+                merged_inv["현재 수중 보유대수"] = merged_inv["전체 보유대수"] - merged_inv["설치대수"]
+                merged_inv["설치활동률(%)"] = (merged_inv["설치대수"] / merged_inv["전체 보유대수"] * 100).round(1)
+                
+                st.subheader("1️⃣ 플래너별 장비 보유 및 설치 현황")
+                st.dataframe(merged_inv[["담당플래너", "전체 보유대수", "설치대수", "현재 수중 보유대수", "설치활동률(%)"]], use_container_width=True)
+                
+                st.divider()
+                st.subheader("⏰ 2️⃣ [3일 체험 완료] 피드백 요청 & 계약 대상")
+                if "3일체험_피드백예정일" in logs_df.columns:
+                    active_trials = logs_df[(logs_df["체험장비설치"] == "설치 완료") & (logs_df["3일체험_피드백예정일"] != "-")]
+                    if len(active_trials) > 0:
+                        disp_cols = ["담당플래너", "고객/매장명", "설치장비품목", "설치일자", "3일체험_피드백예정일", "고객반응/상태"]
+                        st.dataframe(active_trials[disp_cols], use_container_width=True)
+                    else:
+                        st.caption("현재 3일 체험 진행 중인 매장이 없습니다.")
+
+                st.divider()
+                st.write("📋 **전체 영업일지 대장:**")
                 st.dataframe(logs_df, use_container_width=True)
+                
+                logs_csv = logs_df.to_csv(index=False, encoding="utf-8-sig")
+                st.download_button(
+                    label="📥 영업일지 전체 다운로드 (.csv)",
+                    data=logs_csv,
+                    file_name="팀_영업활동기록대장.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
             else:
                 st.info("영업일지 데이터가 없습니다.")
 
@@ -517,7 +457,7 @@ with st.sidebar:
                 st.rerun()
 
         with admin_tab3:
-            uploaded_files = st.file_uploader("단가표/제품 문서 누적 학습", type=["pdf", "xlsx", "csv"], accept_multiple_files=True)
+            uploaded_files = st.file_uploader("단가표/제품 문서 누적 학습 (PDF/Excel)", type=["pdf", "xlsx", "csv"], accept_multiple_files=True)
             if uploaded_files and st.button("💾 모든 문서 누적 학습시키기", use_container_width=True):
                 for up_file in uploaded_files:
                     add_file_to_cumulative_knowledge(up_file)
@@ -538,10 +478,10 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# 8. 메인 화면 & 챗봇 인터페이스 (Gemini 2.5 Pro)
+# 7. 메인 화면 & 챗봇 인터페이스 (Gemini 2.5 Pro)
 # ==========================================
 st.title("💼 CLC AI영업툴 (Pro)")
-st.caption("📌 **Gemini 2.5 Pro 플래그십 엔진 + Imagen 3 실사 포스터 연동**")
+st.caption("📌 **Gemini 2.5 Pro (지능형 추론) + Imagen 3 (실사 전단지 렌더링)**")
 st.divider()
 
 if "GEMINI_API_KEY" in st.secrets:
@@ -551,7 +491,7 @@ if "GEMINI_API_KEY" in st.secrets:
     if "messages" not in st.session_state:
         st.session_state.messages = []
 
-    # 1초 반박 퀵카드
+    # 1초 반박 퀵카드 6종
     with st.expander("⚡ **현장 사장님/고객 거절 반응 '1초 반박' 퀵카드 (원터치)**", expanded=False):
         q_col1, q_col2, q_col3 = st.columns(3)
         quick_rejection_prompt = None
@@ -599,7 +539,7 @@ if "GEMINI_API_KEY" in st.secrets:
         if uploaded_img:
             st.image(uploaded_img, caption="첨부된 사진 진단 준비 완료", width=250)
 
-    prompt_input = st.chat_input("질문 또는 제안서 요청... (예: 대박식당에 더슬림 정수기 제안서 이미지 만들어줘 / 가정집에 비데 제안서 작성해줘)")
+    prompt_input = st.chat_input("질문 또는 제안서 요청... (예: 가정집에 살균온정수기, 판테온, 올인원비데 제안서 이미지 만들어줘 / 대박식당에 더슬림 정수기 제안서 작성해줘)")
     
     user_prompt = None
     if quick_rejection_prompt:
@@ -665,15 +605,15 @@ if "GEMINI_API_KEY" in st.secrets:
                     with st.spinner("🎨 Imagen 3가 초고화질 실사 마케팅 전단지 포스터를 렌더링 중입니다..."):
                         target_info = "가정용 프리미엄 케어" if any(k in user_prompt for k in ["가정", "집", "아파트"]) else "사업장 안심 케어"
                         
-                        img_bytes, err = generate_imagen3_marketing_poster(
+                        img_bytes, copy_data, err = generate_imagen3_marketing_poster(
                             client_genai=client,
                             target_info=target_info,
                             product_name=user_prompt,
-                            custom_notes=full_response[:200],
+                            custom_notes="Gemini가 분석한 고객 맞춤 핵심 가치 적용",
                             rag_context=knowledge_context
                         )
                         if img_bytes:
-                            st.image(img_bytes, caption="🎨 Imagen 3 AI 마케팅 전단지 포스터", use_container_width=True)
+                            st.image(img_bytes, caption=f"🎨 Imagen 3 AI 마케팅 전단지 포스터", use_container_width=True)
                             st.download_button(
                                 label="📥 전단지 이미지 다운로드 (.jpg)",
                                 data=img_bytes,
@@ -682,25 +622,25 @@ if "GEMINI_API_KEY" in st.secrets:
                                 use_container_width=True
                             )
                         else:
-                            st.error(f"⚠️ Imagen 3 생성 오류 (Google AI Studio API 권한 또는 Billing 상태 확인 필요): {err}")
+                            st.error(f"⚠️ Imagen 3 생성 오류: {err}")
 
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
             except Exception as e:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 9. 맞춤형 제안서 & 인포그래픽 센터
+    # 8. 맞춤형 제안서 & Imagen 3 전단지 센터 (에어제닉 전용탭 제거 완료)
     # ==========================================
     st.write("---")
-    st.subheader("📋 CLC AI 맞춤형 제안서 & 인포그래픽 센터")
-    tab1, tab2, tab3 = st.tabs(["📱 카톡 1페이지 제안서", "🎨 Imagen 3 AI 실사 전단지", "🌿 에어제닉 4-Step 인포그래픽"])
+    st.subheader("📋 CLC AI 맞춤형 제안서 & 실사 전단지 센터")
+    tab1, tab2 = st.tabs(["📱 카톡 1페이지 제안서", "🎨 Imagen 3 실사 전단지 포스터 생성"])
     
     with tab1:
         with st.form("auto_kakao_form"):
             c1, c2 = st.columns(2)
             with c1:
-                auto_client = st.text_input("고객 대상 (예: 일반 가정집 / 카페)")
-                auto_prod = st.text_input("제안 제품 (예: 더슬림 정수기 / 살균방수비데)")
+                auto_client = st.text_input("고객 대상 (예: 일반 가정집 / 베이커리 카페)")
+                auto_prod = st.text_input("제안 제품군 (예: 살균온정수기, 판테온, 올인원비데)")
             with c2:
                 auto_loc = st.text_input("상황/특징 (예: 신축 아파트 / 위생 강조)")
             submitted_kakao = st.form_submit_button("✨ 고객 맞춤 카톡 제안서 생성 (400~500자)", use_container_width=True)
@@ -721,16 +661,16 @@ if "GEMINI_API_KEY" in st.secrets:
 
     with tab2:
         st.write("🎨 **Google Imagen 3 실사 마케팅 전단지 포스터 생성**")
-        st.caption("AI가 제품과 대상 고객에 맞는 전문 카피와 상업 광고 비주얼을 실시간으로 합성하여 전단지 포스터를 생성합니다.")
+        st.caption("AI가 고객 대상과 제품군을 정밀 분석하여 전문 카피와 상업 광고 비주얼을 실시간으로 합성합니다.")
         with st.form("imagen3_flyer_form"):
-            f_target = st.text_input("고객 대상 (예: 가정집 / 베이커리 카페)", value="일반 가정집")
+            f_target = st.text_input("고객 대상 (예: 일반 가정집 / 베이커리 카페)", value="일반 가정집")
             f_prod = st.text_input("제안 제품군 (예: 살균온정수기, 판테온, 올인원비데)", value="살균온정수기, 판테온, 올인원비데")
-            f_point = st.text_input("강조 요청 사항 (예: AI가 알아서 가족 안심 케어로 추천)", value="가족 건강을 위한 99.9% 살균 케어 패키지")
-            submitted_flyer = st.form_submit_button("🚀 Imagen 3 전단지 포스터 생성", use_container_width=True)
+            f_point = st.text_input("강조 요청 사항 (비워두거나 '알아서 추천' 시 AI가 최적 카피 생성)", value="강조 포인트는 알아서 추천")
+            submitted_flyer = st.form_submit_button("🚀 Imagen 3 실사 전단지 포스터 생성", use_container_width=True)
             
         if submitted_flyer and f_target and f_prod:
-            with st.spinner("🎨 Imagen 3가 고화질 마케팅 전단지 포스터를 렌더링 중입니다..."):
-                img_bytes, err = generate_imagen3_marketing_poster(
+            with st.spinner("🎨 Gemini 2.5 Pro 카피라이팅 및 Imagen 3 고화질 렌더링 중..."):
+                img_bytes, copy_data, err = generate_imagen3_marketing_poster(
                     client_genai=client,
                     target_info=f_target,
                     product_name=f_prod,
@@ -738,6 +678,8 @@ if "GEMINI_API_KEY" in st.secrets:
                     rag_context=knowledge_context
                 )
                 if img_bytes:
+                    if copy_data:
+                        st.info(f"💡 **AI 도출 헤드라인:** {copy_data.get('headline')}\n- {copy_data.get('bullet1')}\n- {copy_data.get('bullet2')}\n- {copy_data.get('bullet3')}")
                     st.image(img_bytes, caption=f"🎨 Imagen 3 실사 포스터 ({f_prod})", use_container_width=True)
                     st.download_button(
                         label="📥 전단지 이미지 다운로드 (.jpg)",
@@ -747,38 +689,10 @@ if "GEMINI_API_KEY" in st.secrets:
                         use_container_width=True
                     )
                 else:
-                    st.error(f"⚠️ Imagen 3 이미지 생성 실패: {err}\n\nGoogle AI Studio 콘솔에서 종량제 결제(Pay-as-you-go)가 활성화되어 있는지 확인해 주세요.")
-
-    with tab3:
-        st.write("🌿 **세스코 에어제닉(Airzenic) 4-Step 공식 인포그래픽**")
-        st.caption("3x2 문제점 분석, 4단계 솔루션, 프리미엄/스탠다드 단가표, 황태팀장 브랜딩이 포함된 고해상도 인포그래픽 카드입니다.")
-        if st.button("🚀 에어제닉 인포그래픽 생성 (.png)", use_container_width=True):
-            with st.spinner("인포그래픽 렌더링 중..."):
-                # RAG 단가 파싱
-                rag_parsed_data = {"prem_price": "250,000원", "std_price": "190,000원"}
-                if knowledge_context:
-                    try:
-                        ex_p = client.chats.create(model="gemini-2.5-pro").send_message(
-                            f"문서에서 에어제닉 프리미엄형과 스탠다드형 가격을 찾아 JSON {{\"prem_price\":\"금액\",\"std_price\":\"금액\"}} 형식으로만 답해줘:\n{knowledge_context[:3000]}"
-                        ).text
-                        m = re.search(r'\{.*\}', ex_p, re.DOTALL)
-                        if m:
-                            rag_parsed_data = json.loads(m.group())
-                    except Exception:
-                        pass
-                
-                air_img_bytes = generate_airzenic_infographic_card(rag_data=rag_parsed_data)
-                st.image(air_img_bytes, caption="세스코 에어제닉 상세 인포그래픽", use_container_width=True)
-                st.download_button(
-                    label="📥 인포그래픽 다운로드 (.png)",
-                    data=air_img_bytes,
-                    file_name="CESCO_Airzenic_Infographic.png",
-                    mime="image/png",
-                    use_container_width=True
-                )
+                    st.error(f"⚠️ Imagen 3 이미지 생성 실패: {err}")
 
     # ==========================================
-    # 10. 현장 영업일지 기록
+    # 9. 현장 영업일지 기록 (3일 체험 스케줄 자동 연동)
     # ==========================================
     with st.expander("📝 **플래너 현장 영업 미팅 일지 기록하기 (3일 체험 관리)**"):
         st.caption("방문 매장/가정집 내역을 기록하세요. '설치 완료' 입력 시 3일 뒤 피드백 및 계약 클로징 일정이 대시보드에 자동 등록됩니다.")
