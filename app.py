@@ -171,14 +171,9 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. [Imagen 3 전용] Gemini 3.1 Pro 기반 마케팅 전단지 생성 파이프라인
+# 3. [Imagen 3] 실사 마케팅 전단지 생성 엔진
 # ==========================================
 def generate_imagen3_marketing_poster(client_genai, target_info, product_name, custom_notes, rag_context):
-    """
-    1단계: Gemini 3.1 Pro가 고객 상황(가정집/매장) 및 RAG 단가표를 정밀 분석하여
-           '강조 포인트 알아서 추천' 등의 입력을 전문적인 상업 카피와 초고화질 영문 프롬프트로 변환
-    2단계: Google Imagen 3 (imagen-3.0-generate-002)를 호출하여 3:4 비율의 실사 포스터 이미지 생성
-    """
     prompt_builder_request = f"""
     You are an expert commercial advertising director for CESCO's premium living care systems.
     Convert the following sales request into:
@@ -213,7 +208,7 @@ def generate_imagen3_marketing_poster(client_genai, target_info, product_name, c
     """
     try:
         res_copy = client_genai.models.generate_content(
-            model="gemini-3.1-pro-preview",
+            model="gemini-2.5-pro",
             contents=prompt_builder_request,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
@@ -235,18 +230,18 @@ def generate_imagen3_marketing_poster(client_genai, target_info, product_name, c
         return None, None, str(e)
 
 # ==========================================
-# 4. [LOCK - CLC AI영업툴] 고도화된 페르소나 및 시스템 지침
+# 4. 시스템 지침
 # ==========================================
 CLC_AI_SALES_TOOL_INSTRUCTION = """
-당신은 현장 B2C(가정) 및 소상공인(사업장) 영업 전문가인 'CLC AI영업툴'입니다.
+당신은 현장 B2C(가정) 및 소상공인(사업장) 영업 전문가 'CLC AI영업툴'입니다.
 주로 소상공인 대표 혹은 가정의 가장 및 결정권자를 상대로 단기 성과 구축과 계약 및 매출 증대를 이끌어내는 것이 주된 목표입니다.
 
 [소통 및 답변 원칙]
 1. 가정집 고객에게는 '사업장/매장' 등의 단어를 절대 쓰지 말고, '가정/우리 집/가족' 관점으로 제안하세요.
 2. 3일 무료체험이 해당하지 않거나 언급되지 않은 제품에는 '3일 체험'을 억지로 넣지 마세요.
 3. 친절하면서도 전문적이고, 어려운 기술 용어보다는 쉬운 일상적 비유를 사용하여 소통합니다.
-4. 자료 요청(제안서, 스크립트 등) 시, **항상 핵심 가치를 먼저 두괄식으로 제시**합니다.
-5. **예상되는 고객의 거절/질문과 그에 대한 명확한 답변**을 반드시 포함해 주세요.
+4. 자료 요청(제안서, 스크립트 등) 시, 항상 핵심 가치를 먼저 두괄식으로 제시합니다.
+5. 예상되는 고객의 거절/질문과 그에 대한 명확한 답변을 반드시 포함해 주세요.
 6. 답변 길이는 핵심만 간결하게 요약하며, 복잡한 내용은 표나 불렛 포인트로 정리합니다.
 
 [세스코 핵심 8대 제품 라인업]
@@ -377,12 +372,12 @@ def save_equipment_inventory(df):
     df.to_csv(EQUIPMENT_LOG_PATH, index=False, encoding="utf-8-sig")
 
 # ==========================================
-# 6. 사이드바 UI (관리자 패널 & RAG & 3일 체험 스케줄 대시보드)
+# 6. 사이드바 UI
 # ==========================================
 with st.sidebar:
     st.header("⚙️ CLC AI영업툴 센터")
     st.success("💼 **CLC AI영업툴 가동 중**")
-    st.caption("가정 B2C 및 소상공인 영업 지원 (Gemini 3.1 Pro + Imagen 3)")
+    st.caption("가정 B2C 및 소상공인 영업 지원 (Gemini 2.5 Pro + Imagen 3)")
 
     st.divider()
     st.subheader("📚 현재 AI 학습 문서 상태")
@@ -477,10 +472,10 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# 7. 메인 화면 & 챗봇 인터페이스 (Gemini 3.1 Pro)
+# 7. 메인 화면 & 챗봇 인터페이스 (안정성 강화)
 # ==========================================
 st.title("💼 CLC AI영업툴 (Pro)")
-st.caption("📌 **Gemini 3.1 Pro (지능형 추론) + Imagen 3 (실사 전단지 렌더링)**")
+st.caption("📌 **Gemini 2.5 Pro (지능형 추론) + Imagen 3 (실사 전단지 렌더링)**")
 st.divider()
 
 if "GEMINI_API_KEY" in st.secrets:
@@ -510,6 +505,7 @@ if "GEMINI_API_KEY" in st.secrets:
             if st.button("📞 '체험/상담 후 계약 클로징'", use_container_width=True):
                 quick_rejection_prompt = "상담 또는 체험 후 고객에게 공식 유료 계약으로 전환(Closing)시키는 피드백 요청 스크립트를 작성해 주세요."
 
+    # 기존 메시지 출력
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
@@ -519,16 +515,16 @@ if "GEMINI_API_KEY" in st.secrets:
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         if st.button("📌 파주 야당역 상권", use_container_width=True):
-            selected_faq = "파주 야당역"
+            selected_faq = "파주 야당역 상권 분석 및 3일 체험 침투 전략을 알려줘"
     with col2:
         if st.button("📌 김포 구래동 상권", use_container_width=True):
-            selected_faq = "김포 구래동"
+            selected_faq = "김포 구래동 상권 분석 및 3일 체험 침투 전략을 알려줘"
     with col3:
         if st.button("📌 검단신도시 아라동", use_container_width=True):
-            selected_faq = "검단신도시 아라동"
+            selected_faq = "검단신도시 아라동 상권 분석 및 침투 전략을 알려줘"
     with col4:
         if st.button("📌 고양 라페스타 B동", use_container_width=True):
-            selected_faq = "고양 라페스타 B동"
+            selected_faq = "고양 라페스타 B동 상권 분석 및 침투 전략을 알려줘"
 
     st.write("---")
 
@@ -550,9 +546,11 @@ if "GEMINI_API_KEY" in st.secrets:
     elif prompt_input:
         user_prompt = prompt_input
 
-    if user_prompt and (len(st.session_state.messages) == 0 or st.session_state.messages[-1]["content"] != user_prompt):
-        st.chat_message("user").markdown(user_prompt)
+    # 사용자 프롬프트 처리 로직
+    if user_prompt:
         st.session_state.messages.append({"role": "user", "content": user_prompt})
+        with st.chat_message("user"):
+            st.markdown(user_prompt)
 
         real_stores_data = None
         if not quick_rejection_prompt and not uploaded_img:
@@ -562,11 +560,6 @@ if "GEMINI_API_KEY" in st.secrets:
             with st.expander(f"📍 **카카오 지도 실시간 검색 매장 리스트 ({len(real_stores_data)}건)**", expanded=True):
                 st.dataframe(pd.DataFrame(real_stores_data)[["상호명", "업종", "주소", "전화번호"]], use_container_width=True)
 
-        history = []
-        for msg in st.session_state.messages[:-1]:
-            role = "user" if msg["role"] == "user" else "model"
-            history.append({"role": role, "parts": [{"text": msg["content"]}]})
-
         final_system_instruction = CLC_AI_SALES_TOOL_INSTRUCTION
         if real_stores_data and len(real_stores_data) > 0:
             stores_text_list = json.dumps(real_stores_data, ensure_ascii=False, indent=2)
@@ -574,32 +567,43 @@ if "GEMINI_API_KEY" in st.secrets:
         if knowledge_context:
             final_system_instruction += f"\n\n[학습된 단가표 및 제품 정보]\n{knowledge_context}"
 
+        # API 전송용 대화 히스토리 구성
+        contents_list = []
+        for msg in st.session_state.messages[:-1]:
+            contents_list.append(types.Content(
+                role="user" if msg["role"] == "user" else "model",
+                parts=[types.Part.from_text(text=msg["content"])]
+            ))
+        
+        if uploaded_img and not prompt_input:
+            from PIL import Image as PILImage
+            img_obj = PILImage.open(uploaded_img)
+            contents_list.append(types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=user_prompt), types.Part.from_bytes(data=uploaded_img.getvalue(), mime_type=uploaded_img.type)]
+            ))
+        else:
+            contents_list.append(types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=user_prompt)]
+            ))
+
         with st.chat_message("assistant"):
             try:
-                chat = client.chats.create(
-                    model="gemini-3.1-pro-preview", 
-                    config=types.GenerateContentConfig(system_instruction=final_system_instruction),
-                    history=history
+                response_stream = client.models.generate_content_stream(
+                    model="gemini-2.5-pro",
+                    contents=contents_list,
+                    config=types.GenerateContentConfig(system_instruction=final_system_instruction)
                 )
-                
-                if uploaded_img and not prompt_input:
-                    from PIL import Image as PILImage
-                    img_obj = PILImage.open(uploaded_img)
-                    send_contents = [user_prompt, img_obj]
-                else:
-                    send_contents = user_prompt
 
-                response_stream = chat.send_message_stream(send_contents)
-                response_chunks = []
-                def stream_generator():
+                def safe_stream_generator():
                     for chunk in response_stream:
-                        response_chunks.append(chunk.text)
-                        yield chunk.text
+                        if chunk.text:
+                            yield chunk.text
 
-                st.write_stream(stream_generator())
-                full_response = "".join(response_chunks)
+                full_response = st.write_stream(safe_stream_generator())
 
-                # '제안서' 및 '이미지' 요청 시 Imagen 3 호출
+                # '제안서' 및 '이미지' 요청 시 Imagen 3 생성
                 if any(k in user_prompt for k in ["제안서 이미지", "제안서 만들어", "제안서 생성", "이미지 만들어", "이미지 생성", "전단지"]):
                     with st.spinner("🎨 Imagen 3가 초고화질 실사 마케팅 전단지 포스터를 렌더링 중입니다..."):
                         target_info = "가정용 프리미엄 케어" if any(k in user_prompt for k in ["가정", "집", "아파트"]) else "사업장 안심 케어"
@@ -608,11 +612,11 @@ if "GEMINI_API_KEY" in st.secrets:
                             client_genai=client,
                             target_info=target_info,
                             product_name=user_prompt,
-                            custom_notes="Gemini가 분석한 고객 맞춤 핵심 가치 적용",
+                            custom_notes=full_response[:200] if full_response else "최적의 위생 케어 추천",
                             rag_context=knowledge_context
                         )
                         if img_bytes:
-                            st.image(img_bytes, caption=f"🎨 Imagen 3 AI 마케팅 전단지 포스터", use_container_width=True)
+                            st.image(img_bytes, caption="🎨 Imagen 3 AI 마케팅 전단지 포스터", use_container_width=True)
                             st.download_button(
                                 label="📥 전단지 이미지 다운로드 (.jpg)",
                                 data=img_bytes,
@@ -625,7 +629,7 @@ if "GEMINI_API_KEY" in st.secrets:
 
                 st.session_state.messages.append({"role": "assistant", "content": full_response})
             except Exception as e:
-                st.error(f"⚠️ 답변 생성 실패: {e}")
+                st.error(f"⚠️ AI 응답 생성 오류: {e}")
 
     # ==========================================
     # 8. 맞춤형 제안서 & Imagen 3 전단지 센터
@@ -645,7 +649,7 @@ if "GEMINI_API_KEY" in st.secrets:
             submitted_kakao = st.form_submit_button("✨ 고객 맞춤 카톡 제안서 생성 (400~500자)", use_container_width=True)
             
         if submitted_kakao and auto_client and auto_prod:
-            with st.spinner("Gemini 3.1 Pro가 고객 니즈 맞춤형 카톡 제안서를 작성 중입니다..."):
+            with st.spinner("Gemini 2.5 Pro가 고객 니즈 맞춤형 카톡 제안서를 작성 중입니다..."):
                 prompt_txt = f"""
                 당신은 영업 전문가 'CLC AI영업툴'입니다.
                 대상: '{auto_client}', 제안 제품: '{auto_prod}', 상황/특징: '{auto_loc}'
@@ -654,7 +658,10 @@ if "GEMINI_API_KEY" in st.secrets:
                 3. 글자수는 400~500자 내외로 제한하고, 이모지와 불렛 포인트를 사용해 가독성을 높이세요.
                 학습 데이터 단가표 참조: {knowledge_context[:1500]}
                 """
-                res_k = client.chats.create(model="gemini-3.1-pro-preview").send_message(prompt_txt).text
+                res_k = client.models.generate_content(
+                    model="gemini-2.5-pro",
+                    contents=prompt_txt
+                ).text
                 st.success("✅ 카톡 제안서가 완성되었습니다! 우측 상단 복사 버튼을 눌러 활용하세요.")
                 st.code(res_k, language="markdown")
 
@@ -668,7 +675,7 @@ if "GEMINI_API_KEY" in st.secrets:
             submitted_flyer = st.form_submit_button("🚀 Imagen 3 실사 전단지 포스터 생성", use_container_width=True)
             
         if submitted_flyer and f_target and f_prod:
-            with st.spinner("🎨 Gemini 3.1 Pro 카피라이팅 및 Imagen 3 고화질 렌더링 중..."):
+            with st.spinner("🎨 Gemini 2.5 Pro 카피라이팅 및 Imagen 3 고화질 렌더링 중..."):
                 img_bytes, copy_data, err = generate_imagen3_marketing_poster(
                     client_genai=client,
                     target_info=f_target,
