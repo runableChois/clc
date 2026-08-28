@@ -171,11 +171,11 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. [Imagen 3 전용] Gemini 3 Pro 기반 마케팅 전단지 생성 파이프라인
+# 3. [Imagen 3 전용] Gemini 3.1 Pro 기반 마케팅 전단지 생성 파이프라인
 # ==========================================
 def generate_imagen3_marketing_poster(client_genai, target_info, product_name, custom_notes, rag_context):
     """
-    1단계: Gemini 3 Pro가 고객 상황(가정집/매장) 및 RAG 단가표를 정밀 분석하여
+    1단계: Gemini 3.1 Pro가 고객 상황(가정집/매장) 및 RAG 단가표를 정밀 분석하여
            '강조 포인트 알아서 추천' 등의 입력을 전문적인 상업 카피와 초고화질 영문 프롬프트로 변환
     2단계: Google Imagen 3 (imagen-3.0-generate-002)를 호출하여 3:4 비율의 실사 포스터 이미지 생성
     """
@@ -213,7 +213,7 @@ def generate_imagen3_marketing_poster(client_genai, target_info, product_name, c
     """
     try:
         res_copy = client_genai.models.generate_content(
-            model="gemini-3-pro-preview",
+            model="gemini-3.1-pro-preview",
             contents=prompt_builder_request,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
@@ -382,7 +382,7 @@ def save_equipment_inventory(df):
 with st.sidebar:
     st.header("⚙️ CLC AI영업툴 센터")
     st.success("💼 **CLC AI영업툴 가동 중**")
-    st.caption("가정 B2C 및 소상공인 영업 지원 (Gemini 3 Pro + Imagen 3)")
+    st.caption("가정 B2C 및 소상공인 영업 지원 (Gemini 3.1 Pro + Imagen 3)")
 
     st.divider()
     st.subheader("📚 현재 AI 학습 문서 상태")
@@ -477,10 +477,10 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# 7. 메인 화면 & 챗봇 인터페이스 (Gemini 3 Pro)
+# 7. 메인 화면 & 챗봇 인터페이스 (Gemini 3.1 Pro)
 # ==========================================
 st.title("💼 CLC AI영업툴 (Pro)")
-st.caption("📌 **Gemini 3 Pro (지능형 추론) + Imagen 3 (실사 전단지 렌더링)**")
+st.caption("📌 **Gemini 3.1 Pro (지능형 추론) + Imagen 3 (실사 전단지 렌더링)**")
 st.divider()
 
 if "GEMINI_API_KEY" in st.secrets:
@@ -577,7 +577,7 @@ if "GEMINI_API_KEY" in st.secrets:
         with st.chat_message("assistant"):
             try:
                 chat = client.chats.create(
-                    model="gemini-3-pro-preview", 
+                    model="gemini-3.1-pro-preview", 
                     config=types.GenerateContentConfig(system_instruction=final_system_instruction),
                     history=history
                 )
@@ -628,7 +628,7 @@ if "GEMINI_API_KEY" in st.secrets:
                 st.error(f"⚠️ 답변 생성 실패: {e}")
 
     # ==========================================
-    # 8. 맞춤형 제안서 & Imagen 3 전단지 센터 (에어제닉 탭 제거 완료)
+    # 8. 맞춤형 제안서 & Imagen 3 전단지 센터
     # ==========================================
     st.write("---")
     st.subheader("📋 CLC AI 맞춤형 제안서 & 실사 전단지 센터")
@@ -645,7 +645,7 @@ if "GEMINI_API_KEY" in st.secrets:
             submitted_kakao = st.form_submit_button("✨ 고객 맞춤 카톡 제안서 생성 (400~500자)", use_container_width=True)
             
         if submitted_kakao and auto_client and auto_prod:
-            with st.spinner("Gemini 3 Pro가 고객 니즈 맞춤형 카톡 제안서를 작성 중입니다..."):
+            with st.spinner("Gemini 3.1 Pro가 고객 니즈 맞춤형 카톡 제안서를 작성 중입니다..."):
                 prompt_txt = f"""
                 당신은 영업 전문가 'CLC AI영업툴'입니다.
                 대상: '{auto_client}', 제안 제품: '{auto_prod}', 상황/특징: '{auto_loc}'
@@ -654,7 +654,7 @@ if "GEMINI_API_KEY" in st.secrets:
                 3. 글자수는 400~500자 내외로 제한하고, 이모지와 불렛 포인트를 사용해 가독성을 높이세요.
                 학습 데이터 단가표 참조: {knowledge_context[:1500]}
                 """
-                res_k = client.chats.create(model="gemini-3-pro-preview").send_message(prompt_txt).text
+                res_k = client.chats.create(model="gemini-3.1-pro-preview").send_message(prompt_txt).text
                 st.success("✅ 카톡 제안서가 완성되었습니다! 우측 상단 복사 버튼을 눌러 활용하세요.")
                 st.code(res_k, language="markdown")
 
@@ -662,13 +662,13 @@ if "GEMINI_API_KEY" in st.secrets:
         st.write("🎨 **Google Imagen 3 실사 마케팅 전단지 포스터 생성**")
         st.caption("AI가 고객 대상과 제품군을 정밀 분석하여 전문 카피와 상업 광고 비주얼을 실시간으로 합성합니다.")
         with st.form("imagen3_flyer_form"):
-            f_target = st.text_input("고객 대상 (예: 가정집 / 베이커리 카페)", value="일반 가정집")
+            f_target = st.text_input("고객 대상 (예: 일반 가정집 / 베이커리 카페)", value="일반 가정집")
             f_prod = st.text_input("제안 제품군 (예: 살균온정수기, 판테온, 올인원비데)", value="살균온정수기, 판테온, 올인원비데")
             f_point = st.text_input("강조 요청 사항 (비워두거나 '알아서 추천' 시 AI가 최적 카피 생성)", value="강조 포인트는 알아서 추천")
             submitted_flyer = st.form_submit_button("🚀 Imagen 3 실사 전단지 포스터 생성", use_container_width=True)
             
         if submitted_flyer and f_target and f_prod:
-            with st.spinner("🎨 Gemini 3 Pro 카피라이팅 및 Imagen 3 고화질 렌더링 중..."):
+            with st.spinner("🎨 Gemini 3.1 Pro 카피라이팅 및 Imagen 3 고화질 렌더링 중..."):
                 img_bytes, copy_data, err = generate_imagen3_marketing_poster(
                     client_genai=client,
                     target_info=f_target,
