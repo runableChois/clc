@@ -171,11 +171,15 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. [Imagen 3] 실사 마케팅 전단지 생성 엔진
+# 3. [Imagen 3] Gemini 3 Pro 기반 마케팅 전단지 생성 파이프라인
 # ==========================================
 def generate_imagen3_marketing_poster(client_genai, target_info, product_name, custom_notes, rag_context):
+    """
+    1단계: Gemini 3 Pro가 고객 상황과 단가표를 정밀 분석하여 최적의 광고 카피 및 Imagen 3 프롬프트 빌드
+    2단계: Google Imagen 3 (imagen-3.0-generate-002)를 호출하여 3:4 실사 포스터 이미지 생성
+    """
     prompt_builder_request = f"""
-    You are an expert commercial advertising director for CESCO's premium living care systems.
+    You are an award-winning creative advertising director for CESCO's premium living care systems.
     Convert the following sales request into:
     1) A crisp, persuasive Korean summary copy (Headline, 3 key bullet points).
     2) An ultra-detailed photorealistic English image generation prompt for Google Imagen 3.
@@ -208,7 +212,7 @@ def generate_imagen3_marketing_poster(client_genai, target_info, product_name, c
     """
     try:
         res_copy = client_genai.models.generate_content(
-            model="gemini-2.5-pro",
+            model="gemini-3-pro-preview",
             contents=prompt_builder_request,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
@@ -230,19 +234,28 @@ def generate_imagen3_marketing_poster(client_genai, target_info, product_name, c
         return None, None, str(e)
 
 # ==========================================
-# 4. 시스템 지침
+# 4. [고도화된 세일즈 컨설턴트 시스템 지침]
 # ==========================================
 CLC_AI_SALES_TOOL_INSTRUCTION = """
-당신은 현장 B2C(가정) 및 소상공인(사업장) 영업 전문가 'CLC AI영업툴'입니다.
-주로 소상공인 대표 혹은 가정의 가장 및 결정권자를 상대로 단기 성과 구축과 계약 및 매출 증대를 이끌어내는 것이 주된 목표입니다.
+당신은 대한민국 상위 1% 실적을 달성한 B2C(가정) 및 소상공인(매장) 환경 위생 영업 전문 비서 'CLC AI영업툴'입니다.
+고객의 무의식적 거절을 허물고 1회 방문만으로 계약 체결률을 극대화하는 것이 핵심 목표입니다.
 
-[소통 및 답변 원칙]
-1. 가정집 고객에게는 '사업장/매장' 등의 단어를 절대 쓰지 말고, '가정/우리 집/가족' 관점으로 제안하세요.
-2. 3일 무료체험이 해당하지 않거나 언급되지 않은 제품에는 '3일 체험'을 억지로 넣지 마세요.
-3. 친절하면서도 전문적이고, 어려운 기술 용어보다는 쉬운 일상적 비유를 사용하여 소통합니다.
-4. 자료 요청(제안서, 스크립트 등) 시, 항상 핵심 가치를 먼저 두괄식으로 제시합니다.
-5. 예상되는 고객의 거절/질문과 그에 대한 명확한 답변을 반드시 포함해 주세요.
-6. 답변 길이는 핵심만 간결하게 요약하며, 복잡한 내용은 표나 불렛 포인트로 정리합니다.
+[상황별 맞춤 페르소나 및 화법 원칙]
+1. 가정집(B2C) 고객:
+   - '사업장/매장/단골/매출' 같은 상업적 단어를 절대 사용하지 마세요.
+   - 가족의 건강(유아·반려동물·부모님), 눈에 보이지 않는 바이러스·세균 안심 차단, 일상의 쾌적함을 중심으로 감성적이면서도 과학적인 혜택을 제시합니다.
+2. 소상공인/자영업자(B2B) 고객:
+   - 네이버 영수증 악성 리뷰 1건 방지로 지켜내는 월 매출 가치(ROI), 배달·매장 손님 신뢰도 향상, 위생 점검 안심 등 실질적 이익을 두괄식으로 제시합니다.
+3. 3일 무료체험 정책:
+   - 3일 체험이 가능한 제품군이나 질문 문맥에만 '부담 없는 3일 무상 체험'을 제안하고, 억지로 모든 대화에 끼워 넣지 않습니다.
+
+[답변 구조 및 글자수 제어 원칙 - 필수]
+1. 분량: 불필요한 서론/인사말을 일절 배제하고, 현장에서 10초 만에 스캔 가능한 **400~500자 내외**로 엄격히 압축합니다.
+2. 두괄식 핵심 가치: 첫 문장에 고객이 얻을 결정적 이점(Value Proposition)을 굵은 글씨로 제시합니다.
+3. 3단 구조화:
+   - 📌 **핵심 진단 및 도입 가치**: 고객의 Pain Point를 해소하는 솔루션
+   - ✨ **제품 특장점 및 차별성**: 시중 일반 제품 대비 세스코만의 압도적 관리 스펙
+   - 💡 **거절 대응 킬러 멘트 & 클로징**: 고객의 예상 질문에 대한 반박 화법 및 행동 유도
 
 [세스코 핵심 8대 제품 라인업]
 1. 공기청정기: '판테온' (360도 필터, CA인증, CO2/PM1.0 센서)
@@ -376,8 +389,8 @@ def save_equipment_inventory(df):
 # ==========================================
 with st.sidebar:
     st.header("⚙️ CLC AI영업툴 센터")
-    st.success("💼 **CLC AI영업툴 가동 중**")
-    st.caption("가정 B2C 및 소상공인 영업 지원 (Gemini 2.5 Pro + Imagen 3)")
+    st.success("💼 **CLC AI영업툴 (Gemini 3 Series)**")
+    st.caption("실시간 상담: Gemini 3 Flash | 정밀 전단지: Imagen 3")
 
     st.divider()
     st.subheader("📚 현재 AI 학습 문서 상태")
@@ -472,10 +485,10 @@ with st.sidebar:
         st.rerun()
 
 # ==========================================
-# 7. 메인 화면 & 챗봇 인터페이스 (안정성 강화)
+# 7. 메인 화면 & 실시간 고속 스트리밍 챗봇
 # ==========================================
 st.title("💼 CLC AI영업툴 (Pro)")
-st.caption("📌 **Gemini 2.5 Pro (지능형 추론) + Imagen 3 (실사 전단지 렌더링)**")
+st.caption("⚡ **Gemini 3 Flash (초고속 실시간 스트리밍) + Imagen 3 (실사 전단지 렌더링)**")
 st.divider()
 
 if "GEMINI_API_KEY" in st.secrets:
@@ -491,34 +504,34 @@ if "GEMINI_API_KEY" in st.secrets:
         quick_rejection_prompt = None
         with q_col1:
             if st.button("🙅 '사장님 지금 안 계세요'", use_container_width=True):
-                quick_rejection_prompt = "고객이 '결정권자가 지금 안 계세요'라고 거절했을 때, 명함을 확보하고 핵심 혜택을 전달하는 1초 반박 스크립트를 작성해 주세요."
-            if st.button("🙅 '기존 제품/디퓨저 있어요'", use_container_width=True):
-                quick_rejection_prompt = "고객이 '기존 제품 쓰고 있어요'라고 거절할 때 세스코의 정밀 살균·차별점을 강조하는 피칭 스크립트를 작성해 주세요."
+                quick_rejection_prompt = "고객이 '결정권자가 지금 안 계세요'라고 거절했을 때, 직원/가족을 통해 연락처를 확보하고 핵심 혜택을 전달하는 1초 반박 피칭 스크립트를 400자 내외로 작성해 주세요."
+            if st.button("🙅 '기존 제품 쓰고 있어요'", use_container_width=True):
+                quick_rejection_prompt = "고객이 '기존 제품/디퓨저 쓰고 있어요'라고 거절할 때 세스코만의 정밀 살균 및 위생 관리 차별점을 강조하는 피칭 스크립트를 400자 내외로 작성해 주세요."
         with q_col2:
             if st.button("🙅 '우린 깨끗해서 필요 없어요'", use_container_width=True):
-                quick_rejection_prompt = "고객이 '우린 깨끗해서 필요 없어요'라고 할 때 잠재 리스크 방지 가치를 설명하는 설득 멘트를 작성해 주세요."
+                quick_rejection_prompt = "고객이 '우린 깨끗해서 필요 없어요'라고 할 때 눈에 보이지 않는 잠재 유해균 리스크 방지 가치를 설명하는 설득 멘트를 400자 내외로 작성해 주세요."
             if st.button("🙅 '공짜라 하고 돈 요구하죠?'", use_container_width=True):
-                quick_rejection_prompt = "고객이 '나중에 비용 요구하려는 것 아니냐'며 의심할 때 안심시키는 신뢰 스크립트를 작성해 주세요."
+                quick_rejection_prompt = "고객이 '나중에 비용 요구하려는 것 아니냐'며 의심할 때 100% 안심시키는 신뢰 스크립트를 400자 내외로 작성해 주세요."
         with q_col3:
             if st.button("🙅 '월 비용이 부담돼요'", use_container_width=True):
-                quick_rejection_prompt = "고객이 '월 이용료가 부담된다'고 할 때 손실 방지 ROI 가치를 설명하는 반박 화법을 작성해 주세요."
+                quick_rejection_prompt = "고객이 '월 이용료가 부담된다'고 할 때 장기적 손실 방지 ROI 가치와 가성비를 설명하는 반박 화법을 400자 내외로 작성해 주세요."
             if st.button("📞 '체험/상담 후 계약 클로징'", use_container_width=True):
-                quick_rejection_prompt = "상담 또는 체험 후 고객에게 공식 유료 계약으로 전환(Closing)시키는 피드백 요청 스크립트를 작성해 주세요."
+                quick_rejection_prompt = "상담 또는 체험 후 고객에게 공식 유료 계약으로 전환(Closing)시키는 피드백 요청 스크립트를 400자 내외로 작성해 주세요."
 
-    # 기존 메시지 출력
+    # 이전 대화 내용 렌더링
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
     selected_faq = None
-    st.write("💡 **경기 서북부 주요 거점 영업 타겟 분석 (버튼 터치):**")
+    st.write("💡 **경기 서북부 주요 거점 영업 타겟 분석 (원터치):**")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
         if st.button("📌 파주 야당역 상권", use_container_width=True):
-            selected_faq = "파주 야당역 상권 분석 및 3일 체험 침투 전략을 알려줘"
+            selected_faq = "파주 야당역 상권 분석 및 침투 전략을 알려줘"
     with col2:
         if st.button("📌 김포 구래동 상권", use_container_width=True):
-            selected_faq = "김포 구래동 상권 분석 및 3일 체험 침투 전략을 알려줘"
+            selected_faq = "김포 구래동 상권 분석 및 침투 전략을 알려줘"
     with col3:
         if st.button("📌 검단신도시 아라동", use_container_width=True):
             selected_faq = "검단신도시 아라동 상권 분석 및 침투 전략을 알려줘"
@@ -542,11 +555,11 @@ if "GEMINI_API_KEY" in st.secrets:
     elif selected_faq:
         user_prompt = selected_faq
     elif uploaded_img and not prompt_input:
-        user_prompt = "첨부한 현장 사진을 정밀 진단하고 맞춤 제안 리포트를 작성해 주세요."
+        user_prompt = "첨부한 현장 사진을 정밀 진단하고 400~500자 내외로 맞춤 제안 리포트를 작성해 주세요."
     elif prompt_input:
         user_prompt = prompt_input
 
-    # 사용자 프롬프트 처리 로직
+    # 사용자 프롬프트 처리
     if user_prompt:
         st.session_state.messages.append({"role": "user", "content": user_prompt})
         with st.chat_message("user"):
@@ -590,10 +603,15 @@ if "GEMINI_API_KEY" in st.secrets:
 
         with st.chat_message("assistant"):
             try:
+                # 1~2초 내 즉시 반응하는 Gemini 3 Flash 스트리밍 엔진 탑재
                 response_stream = client.models.generate_content_stream(
-                    model="gemini-2.5-pro",
+                    model="gemini-3-flash-preview",
                     contents=contents_list,
-                    config=types.GenerateContentConfig(system_instruction=final_system_instruction)
+                    config=types.GenerateContentConfig(
+                        system_instruction=final_system_instruction,
+                        temperature=0.6,
+                        max_output_tokens=1000
+                    )
                 )
 
                 def safe_stream_generator():
@@ -603,9 +621,9 @@ if "GEMINI_API_KEY" in st.secrets:
 
                 full_response = st.write_stream(safe_stream_generator())
 
-                # '제안서' 및 '이미지' 요청 시 Imagen 3 생성
+                # '제안서' 및 '이미지' 요청 시에만 Imagen 3 호출
                 if any(k in user_prompt for k in ["제안서 이미지", "제안서 만들어", "제안서 생성", "이미지 만들어", "이미지 생성", "전단지"]):
-                    with st.spinner("🎨 Imagen 3가 초고화질 실사 마케팅 전단지 포스터를 렌더링 중입니다..."):
+                    with st.spinner("🎨 Imagen 3가 고화질 실사 마케팅 전단지 포스터를 렌더링 중입니다..."):
                         target_info = "가정용 프리미엄 케어" if any(k in user_prompt for k in ["가정", "집", "아파트"]) else "사업장 안심 케어"
                         
                         img_bytes, copy_data, err = generate_imagen3_marketing_poster(
@@ -636,7 +654,7 @@ if "GEMINI_API_KEY" in st.secrets:
     # ==========================================
     st.write("---")
     st.subheader("📋 CLC AI 맞춤형 제안서 & 실사 전단지 센터")
-    tab1, tab2 = st.tabs(["📱 카톡 1페이지 제안서", "🎨 Imagen 3 실사 전단지 포스터 생성"])
+    tab1, tab2 = st.tabs(["📱 카톡 1페이지 제안서 (마크다운 복사)", "🎨 Imagen 3 실사 전단지 포스터 생성"])
     
     with tab1:
         with st.form("auto_kakao_form"):
@@ -645,37 +663,38 @@ if "GEMINI_API_KEY" in st.secrets:
                 auto_client = st.text_input("고객 대상 (예: 일반 가정집 / 베이커리 카페)")
                 auto_prod = st.text_input("제안 제품군 (예: 살균온정수기, 판테온, 올인원비데)")
             with c2:
-                auto_loc = st.text_input("상황/특징 (예: 신축 아파트 / 위생 강조)")
+                auto_loc = st.text_input("상황/특징 (예: 신축 아파트 / 위생 안심 강조)")
             submitted_kakao = st.form_submit_button("✨ 고객 맞춤 카톡 제안서 생성 (400~500자)", use_container_width=True)
             
         if submitted_kakao and auto_client and auto_prod:
-            with st.spinner("Gemini 2.5 Pro가 고객 니즈 맞춤형 카톡 제안서를 작성 중입니다..."):
+            with st.spinner("Gemini 3 Flash가 최적화된 카톡 제안서를 작성 중입니다..."):
                 prompt_txt = f"""
-                당신은 영업 전문가 'CLC AI영업툴'입니다.
+                당신은 세일즈 전문가 'CLC AI영업툴'입니다.
                 대상: '{auto_client}', 제안 제품: '{auto_prod}', 상황/특징: '{auto_loc}'
-                1. 대상이 가정집인지 사업장인지 정확히 구분하여 공감대를 형성하세요.
+                1. 대상이 가정집인지 사업장인지 정확히 구분하여 맞춤 공감대를 형성하세요.
                 2. 해당 제품이 불편함을 어떻게 해결하는지 두괄식으로 명쾌하게 제시하세요.
-                3. 글자수는 400~500자 내외로 제한하고, 이모지와 불렛 포인트를 사용해 가독성을 높이세요.
+                3. 전체 글자수는 400~500자 내외로 엄격히 제한하고, 이모지와 불렛 포인트를 사용해 가독성을 극대화하세요.
                 학습 데이터 단가표 참조: {knowledge_context[:1500]}
                 """
                 res_k = client.models.generate_content(
-                    model="gemini-2.5-pro",
-                    contents=prompt_txt
+                    model="gemini-3-flash-preview",
+                    contents=prompt_txt,
+                    config=types.GenerateContentConfig(temperature=0.6, max_output_tokens=1000)
                 ).text
                 st.success("✅ 카톡 제안서가 완성되었습니다! 우측 상단 복사 버튼을 눌러 활용하세요.")
                 st.code(res_k, language="markdown")
 
     with tab2:
         st.write("🎨 **Google Imagen 3 실사 마케팅 전단지 포스터 생성**")
-        st.caption("AI가 고객 대상과 제품군을 정밀 분석하여 전문 카피와 상업 광고 비주얼을 실시간으로 합성합니다.")
+        st.caption("Gemini 3 Pro가 전문 카피를 빌드하고 Imagen 3가 상업 광고 비주얼을 실시간 렌더링합니다.")
         with st.form("imagen3_flyer_form"):
             f_target = st.text_input("고객 대상 (예: 일반 가정집 / 베이커리 카페)", value="일반 가정집")
             f_prod = st.text_input("제안 제품군 (예: 살균온정수기, 판테온, 올인원비데)", value="살균온정수기, 판테온, 올인원비데")
-            f_point = st.text_input("강조 요청 사항 (비워두거나 '알아서 추천' 시 AI가 최적 카피 생성)", value="강조 포인트는 알아서 추천")
+            f_point = st.text_input("강조 요청 사항 (비워두거나 '알아서 추천' 시 AI가 최적 카피 생성)", value="가족 건강을 위한 99.9% 살균 안심 케어 패키지")
             submitted_flyer = st.form_submit_button("🚀 Imagen 3 실사 전단지 포스터 생성", use_container_width=True)
             
         if submitted_flyer and f_target and f_prod:
-            with st.spinner("🎨 Gemini 2.5 Pro 카피라이팅 및 Imagen 3 고화질 렌더링 중..."):
+            with st.spinner("🎨 Gemini 3 Pro 카피라이팅 및 Imagen 3 고화질 렌더링 중..."):
                 img_bytes, copy_data, err = generate_imagen3_marketing_poster(
                     client_genai=client,
                     target_info=f_target,
