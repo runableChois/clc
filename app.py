@@ -171,7 +171,7 @@ def search_kakao_local_stores(query_text):
         return None
 
 # ==========================================
-# 3. [초고속 Imagen 3 파이프라인] Gemini 3 Flash 기반 카피 빌더 & 이미지 생성
+# 3. [Imagen 3 전용] 마케팅 전단지 생성 파이프라인
 # ==========================================
 def generate_imagen3_marketing_poster(client_genai, target_info, product_name, custom_notes, rag_context):
     prompt_builder_request = f"""
@@ -207,13 +207,14 @@ def generate_imagen3_marketing_poster(client_genai, target_info, product_name, c
     }}
     """
     try:
-        # 빠른 프롬프트 생성을 위해 gemini-3-flash-preview 적용
         res_copy = client_genai.models.generate_content(
             model="gemini-3-flash-preview",
             contents=prompt_builder_request,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
-                temperature=0.3
+                temperature=0.3,
+                max_output_tokens=1500,
+                thinking_config=types.ThinkingConfig(thinking_budget=0)
             )
         )
         parsed_data = json.loads(res_copy.text)
@@ -250,11 +251,11 @@ CLC_AI_SALES_TOOL_INSTRUCTION = """
    - 3일 체험이 가능한 제품군이나 질문 문맥에만 '부담 없는 3일 무상 체험'을 제안하고, 억지로 모든 대화에 끼워 넣지 않습니다.
 
 [답변 구조 및 분량 엄격 제어]
-1. 분량: 불필요한 인사말을 일절 배제하고, 현장에서 10초 만에 스캔 가능한 **400~500자 내외**로 명쾌하게 작성합니다.
-2. 첫 줄에 고객이 얻을 결정적 이점(Value Proposition)을 굵은 글씨로 두괄식 제시합니다.
+1. 분량: 불필요한 인사말을 일절 배제하고, 현장에서 10초 만에 스캔 가능한 **400~500자 내외**로 명쾌하게 완결 작성합니다.
+2. 첫 줄에 고객이 얻을 결정적 이점(Value Proposition)이나 최종 견적 금액을 굵은 글씨로 두괄식 제시합니다.
 3. 3단 구조화:
-   - 📌 **핵심 진단 및 도입 가치**: 고객의 Pain Point를 해소하는 솔루션
-   - ✨ **제품 특장점 및 차별성**: 시중 일반 제품 대비 세스코만의 관리 스펙
+   - 📌 **핵심 진단 및 도입 가치**: 고객의 고민을 즉각 해소하는 솔루션과 최적 견적
+   - ✨ **제품 특장점 및 차별성**: 시중 일반 제품 대비 세스코만의 압도적 관리 스펙
    - 💡 **거절 대응 킬러 멘트 & 클로징**: 고객의 예상 거절 질문에 대한 반박 및 행동 유도
 
 [세스코 핵심 8대 제품 라인업]
@@ -603,14 +604,15 @@ if "GEMINI_API_KEY" in st.secrets:
 
         with st.chat_message("assistant"):
             try:
-                # 1~2초 내 즉각 응답하는 Gemini 3 Flash 적용
+                # 1~2초 내 즉시 스트리밍 시작 및 토큰 한도 대폭 확장 (3,000 토큰)
                 response_stream = client.models.generate_content_stream(
                     model="gemini-3-flash-preview",
                     contents=contents_list,
                     config=types.GenerateContentConfig(
                         system_instruction=final_system_instruction,
                         temperature=0.5,
-                        max_output_tokens=700
+                        max_output_tokens=3000,
+                        thinking_config=types.ThinkingConfig(thinking_budget=0)
                     )
                 )
 
@@ -679,7 +681,11 @@ if "GEMINI_API_KEY" in st.secrets:
                 res_k = client.models.generate_content(
                     model="gemini-3-flash-preview",
                     contents=prompt_txt,
-                    config=types.GenerateContentConfig(temperature=0.5, max_output_tokens=700)
+                    config=types.GenerateContentConfig(
+                        temperature=0.5, 
+                        max_output_tokens=2000,
+                        thinking_config=types.ThinkingConfig(thinking_budget=0)
+                    )
                 ).text
                 st.success("✅ 카톡 제안서가 완성되었습니다! 우측 상단 복사 버튼을 눌러 활용하세요.")
                 st.code(res_k, language="markdown")
